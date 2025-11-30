@@ -1,0 +1,13 @@
+node_modules/
+.DS_Store
+dist/
+.svelte-kit/
+.env
+.env.*
+!.env.example
+vite.config.ts.timestamp-*
+test_nunjucks.js
+test_regex.js
+*.db
+.lovely-docs/
+.lovely-docs.yaml
