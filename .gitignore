@@ -8,6 +8,4 @@ dist/
 vite.config.ts.timestamp-*
 test_nunjucks.js
 test_regex.js
-*.db
-.lovely-docs/
-.lovely-docs.yaml
+db/

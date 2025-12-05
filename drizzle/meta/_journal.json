@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1764653838450,
+      "tag": "0000_productive_squadron_supreme",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1764654270787,
+      "tag": "0001_round_talon",
+      "breakpoints": true
+    }
+  ]
+}

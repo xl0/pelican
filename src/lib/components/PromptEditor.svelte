@@ -146,6 +146,7 @@
       bind:value
       lang={markdown()}
       theme={oneDark}
+      lineNumbers={false}
       styles={{
         "&": {
             height: "150px",
