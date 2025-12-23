@@ -25,6 +25,7 @@ A web application that converts prompts and reference images into SVG or ASCII a
   - **Raw Output View**: Toggle to display complete model output including thinking process
   - Raw output shown in separate card below preview for simultaneous viewing
   - Download generated images
+  - ASCII preview/history now rendered via `svelte-asciiart` (`AsciiArt`) rather than generating an SVG wrapper in-app
 
 - [x] **Advanced Settings**
   - Provider selection (OpenAI, Anthropic, Google, xAI, OpenRouter, Custom)
@@ -173,6 +174,12 @@ A web application that converts prompts and reference images into SVG or ASCII a
 
 ## Recent Enhancements (Dec 2024)
 
+- ✅ Fixed deprecated Lucide icons (replaced `AlertCircle` with `CircleAlert`, `Wand2` with `WandSparkles`)
+- ✅ Revitalized switch component with better contrast and "seated" thumb positions to avoid a disabled look
+- ✅ Consolidated UI icons to use Lucide components (e.g. `Trash2`)
+- ✅ Enhanced prompt preview to use CodeMirror for consistent styling and syntax highlighting
+- ✅ Improved Nunjucks variable check in `PromptEditor.svelte` to support whitespace and filters
+- ✅ Resolved TypeScript catch clause type error in `PromptEditor.svelte`
 - ✅ Aspect ratio controls with preset buttons
 - ✅ Raw output viewing in separate card
 - ✅ Enhanced SVG error reporting with line/column numbers
@@ -181,6 +188,35 @@ A web application that converts prompts and reference images into SVG or ASCII a
 - ✅ Immediate PNG artifact saving
 - ✅ Model capability detection helper function
 - ✅ Database schema updates for dimensions and rendered images
+
+## S3 Migration (Dec 18, 2024) - COMPLETE
+
+### Infrastructure
+
+- **S3 Bucket**: `pelican-artifacts`
+- **CloudFront**: `d3rybyofuhagdh.cloudfront.net`
+- **IAM User**: `pelican-uploader`
+
+### S3 Key Structure
+
+```
+{generationId}/input/{imageId}.{ext}    # Input images (Buffer)
+{generationId}/step_{order}.{ext}       # Artifacts (svg, txt)
+```
+
+### API
+
+- `uploadInputImage(generationId, imageId, data: Buffer, extension)` → returns S3 key
+- `uploadStepArtifact(generationId, stepOrder, content: string, format: "svg"|"ascii")` → returns S3 key
+- Client constructs URL: `https://${PUBLIC_CLOUDFRONT_URL}/${key}`
+
+### Files
+
+- `infra/` - Terraform (S3, CloudFront, IAM)
+- `src/lib/server/s3/index.ts` - S3 upload functions
+- `src/lib/server/fs/service.ts` - delegates to S3
+
+---
 
 ## Next Steps (Future Enhancements)
 
@@ -378,3 +414,75 @@ The refactoring successfully centralized all application state into a single rea
 3. **Export Cost Reports**:
    - Allow exporting cost history as CSV
    - Add cost analytics and charts
+
+## Current Refactoring (Dec 16, 2024)
+
+### Goals
+
+- Modernize codebase to use Svelte 5 runes and SvelteKit remote functions
+- Replace custom `Persisted` class with `runed`'s `PersistedState`
+- Simplify state management by removing unnecessary class structure
+- Convert API endpoints to remote functions for type-safe client-server communication
+
+### Completed
+
+- [x] Convert `+layout.svelte` to runes (use `{@render children()}` instead of `<slot />`)
+- [x] Replace custom `Persisted<T>` class with `PersistedState` from `runed`
+- [x] Rename SVG dimension variables: `width` → `svgWidth`, `height` → `svgHeight`
+- [x] Remove `AppState` class - use standalone persisted variables and helper functions
+- [x] Move `showApiKey`, `aspectRatio`, `promptTemplatesOpen` to local component state
+- [x] Move `providerLabel` derivation to page/component level
+- [x] Update all components to use new state structure (ModelSettings, OutputSettings, CostDisplay)
+- [x] Convert all API calls to SvelteKit remote functions (`command` for mutations)
+  - Created `src/routes/data.remote.ts` with `createProject`, `createGeneration`, `updateGeneration`, `saveReferenceImage`, `saveGenerationArtifact`
+  - Uses valibot for input validation
+- [x] Simplify API key storage: single `PersistedState<Record<string, string>>` for all provider keys
+- [x] Move cost tracking to Generation records in database
+  - Added `inputTokens`, `outputTokens`, `cost` fields to `generations` table
+  - CostDisplay now accepts `generations` prop and computes totals from DB records
+- [x] Replace `alert()` with Sonner toast notifications
+  - Added Toaster to layout, using `toast.success()` and `toast.error()`
+- [x] Fix `svgToPngBase64` to extract dimensions from SVG viewBox/width/height
+- [x] Refactor state to reflect Project/Generation DB structure
+  - Replaced `generationState` with `projectState` (current Project + generations array)
+  - Added `uiState` for UI-only concerns (isGenerating, selectedStepIndex, streamingContent)
+  - Added `getSelectedGeneration()` helper and derived `generatedImage` state
+  - History thumbnails now render from `projectState.generations` array
+
+## Recent Enhancements (Dec 6, 2024)
+
+### ASCII Art Preview Improvements ✅
+
+- **Native SVG Text Rendering**: Replaced `foreignObject` based rendering with explicit SVG `<text>` elements. This eliminates layout inconsistencies caused by browser-specific foreignObject handling.
+- **Precision Grid Alignment**: Implemented a custom SVG layout engine that:
+  - Splits the ASCII content into individual lines.
+  - Positions each line with explicit Y-coordinates based on a fixed line height (18px).
+  - Uses `xml:space="preserve"` to ensure every space character is respected exactly as intended.
+  - Uses a robust monospace font stack (`'Courier New', monospace`) with fixed metrics (9px char width).
+- **Grid Visualization**: Added a subtle vector grid background and a dashed border that exactly matches the target character dimensions (e.g., 80x24), making it instantly obvious if the model's output deviates from the requested size.
+- **No More Distortion**: Removed aggressive `textLength` forcing which was causing unnatural character stretching. The text now renders naturally while staying perfectly aligned to the grid.
+
+### Preview & History UX Overhaul ✅
+
+- **Inline SVG Canvas**: Both the main preview window and the history thumbnails now use inline SVG rendering instead of static `<img>` tags.
+  - **Selectable Text**: You can now select and copy ASCII text directly from the preview window.
+  - **Crisp Scaling**: The history thumbnails use the SVG `viewBox` to scale perfectly to any size, avoiding blurriness.
+- **Smart History Switching**:
+  - **Auto-Follow**: If you are viewing the latest generation (or starting fresh), the preview automatically tracks the new generation in real-time.
+  - **Stay-Put**: If you are reviewing an older version while a new one is generating in the background, the view stays on your selected version.
+- **Loading States**: Added pulse animations to history items while they are being generated.
+
+### Raw Data Inspection ✅
+
+- **Enhanced Raw View**: The "Show Raw" toggle now reveals a comprehensive inspection panel.
+- **Inputs & Outputs**:
+  - **Model Input**: A collapsible section showing the _exact_ system prompt and user messages sent to the model for that specific step. Useful for debugging prompt templates.
+  - **Model Output**: The full raw output from the model, including thinking tags and other artifacts.
+- **State Tracking**: `rawInputs` are now tracked alongside `rawOutputs` in the application state, allowing full retrospective inspection of the generation process.
+
+### Reliability Fixes ✅
+
+- **Project Creation**: Fixed a critical bug where `projectId` was undefined due to Drizzle ORM returning an array instead of an object.
+- **Artifact Saving**: Ensured that the backend API correctly validates project IDs to prevent 500 errors.
+- **State Integrity**: Updated all API calls to correctly dereference `Persisted` state objects (using `.current`) before sending data to the server, fixing `[object Object]` errors in the database.
+- **Prompt Logic**: Cleaned up the conditional logic for showing SVG vs. ASCII prompt templates, ensuring the right tools are shown for the right job.

@@ -1,21 +1,35 @@
+import { providerNames } from "$lib/models";
+import { relations } from "drizzle-orm";
 import {
-  pgTable,
-  text,
   integer,
-  boolean,
-  timestamp,
+  pgSchema,
+  real,
   serial,
+  text,
+  timestamp,
+  uuid,
 } from "drizzle-orm/pg-core";
 
-export const projects = pgTable("projects", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
+export const pelican = pgSchema("pelican");
+export const formatEnum = pelican.enum("formats", ["svg", "asii"]);
+export const providerEnum = pelican.enum("providrs", providerNames);
+export const generationStaut = pelican.enum("status", [
+  "pending",
+  "generating",
+  "completed",
+  "failed",
+]);
+
+export const generations = pelican.table("generations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  // We dont really keep track of the users, a random id is saved in the browser
+  // to let the users retrieve their previous generations.
+  userId: uuid("user_id").notNull(),
+  title: text("title").notNull(),
   prompt: text("prompt").notNull(),
-  outputFormat: text("output_format").$type<"svg" | "ascii">().notNull(),
-  isColor: boolean("is_color").notNull().default(true),
-  width: integer("width").notNull().default(800),
-  height: integer("height").notNull().default(600),
-  referenceImagePath: text("reference_image_path"),
+  format: formatEnum("format").notNull(),
+  width: integer("width").notNull(),
+  height: integer("height").notNull(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at")
     .notNull()
@@ -23,46 +37,79 @@ export const projects = pgTable("projects", {
     .$onUpdate(() => new Date()),
 });
 
-export const generations = pgTable("generations", {
+export const steps = pelican.table("steps", {
+  // Note: id increments globall to make sure the steps are in the right order
   id: serial("id").primaryKey(),
-  projectId: integer("project_id")
+  generationId: uuid("gen_id")
     .notNull()
-    .references(() => projects.id, { onDelete: "cascade" }),
-  stepNumber: integer("step_number").notNull(),
-  provider: text("provider")
-    .$type<
-      "openai" | "anthropic" | "google" | "xai" | "openrouter" | "custom"
-    >()
-    .notNull(),
+    .references(() => generations.id, { onDelete: "cascade" }),
+  provider: providerEnum("provider").notNull(),
   model: text("model").notNull(),
   endpoint: text("endpoint"),
   promptTemplate: text("prompt_template").notNull(),
   renderedPrompt: text("rendered_prompt").notNull(),
-  artifactPath: text("artifact_path").notNull(),
-  status: text("status")
-    .$type<"pending" | "generating" | "completed" | "failed">()
-    .notNull()
-    .default("pending"),
+
+  status: generationStaut("status").notNull(),
   errorMessage: text("error_message"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   completedAt: timestamp("completed_at"),
+
   rawOutput: text("raw_output"),
-  renderedImagePath: text("rendered_image_path"),
+
+  inputTokens: integer("input_tokens"),
+  outputTokens: integer("output_tokens"),
+  inputCost: real("input_cost"),
+  outputCost: real("output_cost"),
 });
 
-export const settings = pgTable("settings", {
+// A generation may produce more than one artifact.
+// Sometimes the model will generate an svg, then
+// decide it's not good enough and generate anouither one
+export const artifacts = pelican.table("artifacts", {
   id: serial("id").primaryKey(),
-  key: text("key").notNull().unique(),
-  value: text("value").notNull(),
-  updatedAt: timestamp("updated_at")
+  stepId: integer("step_id")
     .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
+    .references(() => steps.id, { onDelete: "cascade" }),
+  body: text("body").default(""),
 });
 
-export type Project = typeof projects.$inferSelect;
-export type NewProject = typeof projects.$inferInsert;
+export const inputImages = pelican.table("images", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  generationId: uuid("gen_id")
+    .notNull()
+    .references(() => generations.id, { onDelete: "cascade" }),
+});
+
+export const genRelations = relations(generations, ({ many }) => ({
+  inputImages: many(inputImages),
+  steps: many(steps),
+}));
+
+export const stepRelations = relations(steps, ({ one, many }) => ({
+  generation: one(generations, {
+    fields: [steps.generationId],
+    references: [generations.id],
+  }),
+  artifacts: many(artifacts),
+}));
+
+export const artifactRelations = relations(artifacts, ({ one }) => ({
+  step: one(steps, {
+    fields: [artifacts.stepId],
+    references: [steps.id],
+  }),
+}));
+
+export const inputImageRelations = relations(inputImages, ({ one }) => ({
+  generation: one(generations, {
+    fields: [inputImages.generationId],
+    references: [generations.id],
+  }),
+}));
+
 export type Generation = typeof generations.$inferSelect;
 export type NewGeneration = typeof generations.$inferInsert;
-export type Setting = typeof settings.$inferSelect;
-export type NewSetting = typeof settings.$inferInsert;
+export type Step = typeof steps.$inferSelect;
+export type NewStep = typeof steps.$inferInsert;
+export type Artifact = typeof artifacts.$inferSelect;
+export type NewArtifact = typeof artifacts.$inferInsert;

@@ -1,188 +1,213 @@
 <script lang="ts">
-  import CodeMirror from "svelte-codemirror-editor";
-  import { markdown } from "@codemirror/lang-markdown";
-  import { oneDark } from "@codemirror/theme-one-dark";
-  import { EditorView } from "@codemirror/view";
-  import { AlertCircle, CheckCircle2 } from "@lucide/svelte";
-  import { cn } from "$lib/utils";
+	import { cn } from '$lib/utils';
+	import { markdown } from '@codemirror/lang-markdown';
+	import { oneDark } from '@codemirror/theme-one-dark';
+	import { EditorView } from '@codemirror/view';
+	import { CircleAlert } from '@lucide/svelte';
+	import { Button } from '$lib/components/ui/button';
+	import { Label } from '$lib/components/ui/label';
+	import { Switch } from '$lib/components/ui/switch';
+	import CodeMirror from 'svelte-codemirror-editor';
+	import { linter, type Diagnostic } from '@codemirror/lint';
+	import { app } from '$lib/appstate.svelte';
+	import * as p from '$lib/persisted.svelte';
 
-  import dbg from 'debug';
-  import nunjucks from 'nunjucks';
-  import { linter, type Diagnostic } from '@codemirror/lint';
+	import dbg from 'debug';
+	import nunjucks from 'nunjucks';
+	const debug = dbg('app:components:PromptEditor');
 
-  const debug = dbg('app:components:PromptEditor');
+	// Configure nunjucks to be minimal and throw on undefined variables as requested
+	const env = new nunjucks.Environment(null, { autoescape: false, throwOnUndefined: true });
 
-  // Configure nunjucks to be minimal
-  const env = new nunjucks.Environment(null, { autoescape: false });
+	let { isInitialPrompt = true, class: className }: { isInitialPrompt: boolean; class?: string } = $props();
 
-  let {
-    value = $bindable(),
-    requiredVariables = [],
-    class: className
-  }: {
-    value: string;
-    requiredVariables?: string[];
-    class?: string;
-  } = $props();
+	let syntaxError = $state<string | null>(null);
 
-  // Linter function for CodeMirror
-  const syntaxLinter = linter((view) => {
-    const content = view.state.doc.toString();
-    const diagnostics: Diagnostic[] = [];
+	let rendered = $derived.by(() => {
+		if (isInitialPrompt) return app.renderedPrompt;
+		return app.renderedRefinementPrompt;
+	});
 
-    // 1. Regex-based checks for specific issues
-    const strictRegex = /\{\{(?!\s*[a-zA-Z0-9_.]+\s*\}\})/g;
-    let match;
-    let loopCount = 0;
+	let template = $derived.by(() => {
+		if (isInitialPrompt) {
+			if (p.outputFormat.current == 'svg') return p.initialTemplate;
+			return p.asciiInitialTemplate;
+		}
+		if (p.outputFormat.current == 'svg') return p.refinementTemplate;
+		return p.asciiRefinementTemplate;
+	});
 
-    while ((match = strictRegex.exec(content)) !== null) {
-        loopCount++;
-        if (loopCount > 100) break;
+	let context = $derived.by(() => {
+		if (p.outputFormat.current == 'svg')
+			return {
+				prompt: p.prompt.current,
+				width: p.svgWidth.current,
+				height: p.svgHeight.current
+			};
+		return {
+			prompt: p.prompt,
+			width: p.asciiWidth,
+			height: p.asciiHeight
+		};
+	});
 
-        const start = match.index;
-        // Try to find where the tag "should" end or where the error is
-        // We'll highlight from {{ up to the next whitespace or } or end of line
-        let end = content.indexOf('}}', start);
-        if (end === -1) end = Math.min(content.length, start + 20);
-        else end += 2; // Include }} if found but invalid content
+	const title = $derived.by(() => {
+		const left = isInitialPrompt ? 'Initial prompt template ' : 'Refinement prompt template ';
+		return left + p.outputFormat.current === 'svg' ? '(svg)' : '(ascii)';
+	});
 
-        const snippet = content.substring(start, end);
-        let message = "Invalid tag syntax";
+	let requiredVariables = ['prompt'];
+	let showPreview = $state(false);
 
-        // Try to be more specific
-        if (!snippet.includes('}}')) {
-             message = "Missing closing brackets '}}'";
-        } else if (/[^a-zA-Z0-9_.\s]/.test(snippet.slice(2, -2))) {
-             message = "Tag contains invalid characters (only letters, numbers, underscores, and dots allowed)";
-        }
+	$effect(() => {
+		try {
+			// const c = Object.fromEntries(Object.entries(context).map(([k, v]) => [k, v.current]));
+			// debug({ context: c });
+			rendered = env.renderString(template.current, context);
+		} catch (e: any) {
+			`Error rendering preview: ${e.message.replace('(unknown path) ', '').trim()}`;
+		}
+	});
 
-        diagnostics.push({
-            from: start,
-            to: end,
-            severity: 'error',
-            message: message,
-            actions: []
-        });
-    }
+	// // Linter function for CodeMirror4
+	const syntaxLinter = linter((view) => {
+		debug('lint', { template, context });
+		const diagnostics: Diagnostic[] = [];
+		const content = view.state.doc.toString();
 
-    // 2. Nunjucks compilation check (for structural issues)
-    // Note: Nunjucks doesn't give line/col easily for all errors in a way that maps perfectly,
-    // but we can try to use it if the regex didn't catch anything, or as a general check.
-    // However, Nunjucks errors often point to the start of the file or are generic.
-    // We'll rely on the regex for the visual highlighting of *specific* tags,
-    // and use Nunjucks to catch anything else that might be wrong globally.
+		try {
+			env.renderString(content, context);
+			syntaxError = null;
+		} catch (e: any) {
+			let message = e.message || 'Syntax error';
+			message = message.replace('(unknown path) ', '').trim();
+			syntaxError = message;
 
-    if (diagnostics.length === 0) {
-        try {
-            nunjucks.compile(content, env);
-        } catch (e: any) {
-             // If Nunjucks fails but our regex didn't catch it, mark the whole line or just show a general error
-             // Parsing the error message for line/col would be ideal but Nunjucks is inconsistent.
-             // For now, we won't add a global diagnostic to avoid cluttering if we can't pinpoint it,
-             // relying on the text error below.
-        }
-    }
+			debug('e %O', e);
 
-    return diagnostics;
-  });
+			let line = e.lineno;
+			let col = e.colno;
 
-  // Validation for the "Missing Variables" warning (global state)
-  let missingVariables = $derived.by(() => {
-    const missing: string[] = [];
-    if (requiredVariables.includes('prompt') && !value.includes('{{prompt}}')) {
-      missing.push('prompt');
-    }
-    return missing;
-  });
+			// Try to extract from message if missing or 0 (Nunjucks sometimes puts it only in message)
+			if (!line || line === 1) {
+				const match = message.match(/\[Line (\d+), Column (\d+)\]/);
+				if (match) {
+					line = parseInt(match[1]);
+					col = parseInt(match[2]);
+				}
+			}
 
-  // We still want to show the text error summary below, so we derive it similarly but
-  // we can reuse the logic or just let the linter handle the visual part.
-  // Let's keep a simple derived state for the *text* summary of errors to show below.
-  let syntaxErrorSummary = $derived.by(() => {
-     const errors: string[] = [];
-     // Re-run regex for summary (fast enough)
-     const strictRegex = /\{\{(?!\s*[a-zA-Z0-9_.]+\s*\}\})/g;
-     if (strictRegex.test(value)) {
-         errors.push("Invalid syntax detected (see red highlights)");
-     } else {
-         try {
-            nunjucks.compile(value, env);
-         } catch (e: any) {
-            let msg = e.message || "Syntax error";
-            msg = msg.replace('(unknown path)', '').trim();
-            errors.push(msg);
-         }
-     }
-     return errors;
-  });
+			const lineNum = line || 1;
+			const colNum = col || 0;
 
-  const theme = EditorView.theme({
-    "&": {
-      fontSize: "12px",
-      borderRadius: "0.375rem",
-      border: "1px solid hsl(var(--border))",
-      backgroundColor: "hsl(var(--background))",
-      color: "hsl(var(--foreground))",
-    },
-    ".cm-content": {
-      fontFamily: "monospace",
-    },
-    ".cm-gutters": {
-      backgroundColor: "hsl(var(--muted))",
-      color: "hsl(var(--muted-foreground))",
-      borderRight: "none",
-    },
-    "&.cm-focused": {
-      outline: "2px solid hsl(var(--ring))",
-      outlineOffset: "2px",
-    }
-  });
+			try {
+				const linePos = view.state.doc.line(lineNum);
+				diagnostics.push({
+					from: Math.min(linePos.from + Math.max(0, colNum - 1), linePos.to),
+					to: Math.min(linePos.from + colNum, linePos.to),
+					severity: 'error',
+					message: message
+				});
+			} catch (err) {
+				// Fallback to start of document if line count is off
+				diagnostics.push({
+					from: 0,
+					to: view.state.doc.length,
+					severity: 'error',
+					message: message
+				});
+			}
+		}
 
+		return diagnostics;
+	});
+
+	// Validation for the "Missing Variables" warning (global state)
+	let missingVariables = $derived.by(() => {
+		const missing: string[] = [];
+		for (const v of requiredVariables) {
+			const pattern = new RegExp(`\\{\\{\\s*${v}\\b[\\s\\S]*?\\}\\}`);
+			if (!pattern.test(template.current)) {
+				missing.push(v);
+			}
+		}
+		return missing;
+	});
+
+	const errorTheme = EditorView.theme({
+		'.cm-lintRange-error': {
+			backgroundColor: 'rgba(239, 68, 68, 0.3)',
+			borderBottom: '2px solid rgba(239, 68, 68, 0.6)'
+		}
+	});
 </script>
 
-<div class={cn("space-y-2", className)}>
-  <div class="relative overflow-hidden rounded-md border border-input shadow-sm focus-within:ring-1 focus-within:ring-ring">
-    <CodeMirror
-      bind:value
-      lang={markdown()}
-      theme={oneDark}
-      lineNumbers={false}
-      styles={{
-        "&": {
-            height: "150px",
-            maxWidth: "100%",
-        }
-      }}
-      extensions={[EditorView.lineWrapping, syntaxLinter]}
-    />
-  </div>
+<div class={cn('space-y-1.5 prompt-editor', className)}>
+	<div class="flex items-center justify-between">
+		<Label class="text-xs font-semibold text-foreground">{title}</Label>
+		<div class="flex items-center gap-4">
+			<div class="flex items-center gap-1.5">
+				<Label class="text-[10px] uppercase font-bold text-muted-foreground">Preview</Label>
+				<Switch bind:checked={showPreview} />
+			</div>
+			<Button variant="ghost" size="sm" onclick={() => template.reset()}>Reset</Button>
+		</div>
+	</div>
 
-  <div class="flex flex-col gap-1 text-xs">
-    {#if syntaxErrorSummary.length > 0}
-        {#each syntaxErrorSummary as error}
-            <span class="flex items-center text-destructive font-medium">
-                <AlertCircle class="mr-1 h-3 w-3" />
-                {error}
-            </span>
-        {/each}
-    {/if}
+	{#if showPreview}
+		<div class="relative overflow-hidden rounded-md border border-border shadow-sm">
+			<CodeMirror
+				value={rendered}
+				lang={markdown()}
+				theme={oneDark}
+				lineNumbers={false}
+				editable={false}
+				extensions={[EditorView.lineWrapping]} />
+		</div>
+	{:else}
+		<div class={'relative overflow-hidden rounded-md border border-border shadow-sm focus-within:ring-1 focus-within:ring-ring'}>
+			<CodeMirror
+				bind:value={template.current}
+				lang={markdown()}
+				theme={oneDark}
+				lineNumbers={false}
+				extensions={[EditorView.lineWrapping, syntaxLinter, errorTheme]} />
+		</div>
+	{/if}
 
-    {#if missingVariables.length > 0}
-      <span class="flex items-center text-amber-500 font-medium">
-        <AlertCircle class="mr-1 h-3 w-3" />
-        Warning: Missing required variable {missingVariables.map(v => `{{${v}}}`).join(", ")}
-      </span>
-    {:else if syntaxErrorSummary.length === 0}
-      <span class="flex items-center text-green-600 dark:text-green-500">
-        <CheckCircle2 class="mr-1 h-3 w-3" />
-        Valid template
-      </span>
-    {/if}
+	<div class="flex flex-col gap-1 text-xs">
+		{#if syntaxError}
+			<span class="flex items-center text-destructive font-medium">
+				<CircleAlert class="mr-1 h-3 w-3" />
+				{syntaxError}
+			</span>
+		{/if}
 
-    {#if requiredVariables.length > 0}
-        <span class="text-muted-foreground">
-            Available variables: {requiredVariables.map(v => `{{${v}}}`).join(", ")}
-        </span>
-    {/if}
-  </div>
+		{#if missingVariables.length > 0}
+			<span class="flex items-center text-orange-600 dark:text-orange-400 font-medium">
+				<CircleAlert class="mr-1 h-3 w-3" />
+				Warning: Missing required variable {missingVariables.map((v) => `{{${v}}}`).join(', ')}
+			</span>
+		{/if}
+
+		{#if Object.keys(context).length > 0}
+			<span class="text-muted-foreground">
+				Available variables: {Object.keys(context)
+					.map((v) => `{{${v}}}`)
+					.join(', ')}
+			</span>
+		{/if}
+	</div>
 </div>
+
+<style>
+	.prompt-editor :global(.cm-editor) {
+		min-height: 100px;
+		height: auto !important;
+		max-width: 100%;
+		font-size: 0.75rem;
+	}
+	.prompt-editor :global(.cm-scroller) {
+		overflow: visible !important;
+	}
+</style>
