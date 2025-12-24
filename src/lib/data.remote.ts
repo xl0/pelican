@@ -80,6 +80,14 @@ export const getGenerations = query(v.object({ userId: v.string() }), async ({ u
 	}
 });
 
+export const getPublicGenerations = query(v.object({ limit: v.optional(v.number()) }), async ({ limit }) => {
+	try {
+		return await db.db_getPublicGenerations(limit);
+	} finally {
+		debug('getPublicGenerations limit=%d', limit);
+	}
+});
+
 // ============================================================================
 // Steps
 // ============================================================================

@@ -4,7 +4,7 @@
 	import { fade } from 'svelte/transition';
 	import { onMount, onDestroy, type Snippet } from 'svelte';
 	import { Button } from '$lib/components/ui/button';
-	import { X, ChevronLeft, ChevronRight } from 'lucide-svelte';
+	import { X, ChevronLeft, ChevronRight } from '@lucide/svelte';
 	import { cn } from '$lib/utils';
 
 	let {
@@ -87,13 +87,15 @@
 <svelte:window onkeydown={handleKeydown} />
 
 {#if isOpen && currentImageData}
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<div
-		class={cn('fixed inset-0 z-[10000] flex items-center justify-center bg-black/90', className)}
+		class={cn('fixed inset-0 z-10000 flex items-center justify-center bg-black/90', className)}
 		transition:fade={{ duration: 150 }}
 		aria-modal="true"
 		role="dialog"
 		tabindex="-1"
 	>
+		<!-- svelte-ignore a11y_interactive_supports_focus -->
 		<div class="absolute inset-0" onclick={closeZoom} aria-label="Close" role="button"></div>
 
 		<div
@@ -143,4 +145,4 @@
 	</div>
 {/if}
 
-{@render children()}
+{@render children?.()}

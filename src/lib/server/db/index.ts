@@ -47,6 +47,34 @@ export async function db_getGenerations(userId: string) {
 	}
 }
 
+export async function db_getPublicGenerations(limit = 50) {
+	try {
+		return await db.query.generations.findMany({
+			columns: {
+				id: true,
+				title: true,
+				prompt: true,
+				format: true,
+				width: true,
+				height: true,
+				createdAt: true
+			},
+			orderBy: desc(generations.createdAt),
+			limit,
+			with: {
+				steps: {
+					columns: { id: true },
+					orderBy: desc(steps.id),
+					limit: 1,
+					with: { artifacts: { columns: { id: true }, limit: 1 } }
+				}
+			}
+		});
+	} finally {
+		debug('getPublicGenerations limit=%d', limit);
+	}
+}
+
 export async function db_getGeneration(id: string) {
 	try {
 		return await db.query.generations.findFirst({

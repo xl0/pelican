@@ -125,7 +125,7 @@
 				<Label class="text-[10px] uppercase font-bold text-muted-foreground">Preview</Label>
 				<Switch bind:checked={showPreview} />
 			</div>
-			<Button variant="ghost" size="sm" onclick={() => template.reset()}>Reset</Button>
+			<!-- <Button variant="ghost" size="sm" onclick={() => template.reset()}>Reset</Button> -->
 		</div>
 	</div>
 
