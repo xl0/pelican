@@ -1,12 +1,12 @@
 {
-  "id": "bbd05dd8-8553-4cc0-b062-ebe7467b3bd3",
-  "prevId": "27a7b7f5-5e19-4ca4-b99c-bc014c8a74e5",
+  "id": "856b3526-9d9e-483a-8832-81c168b2f291",
+  "prevId": "e20f13cb-79d2-43d1-bed5-3335aed79956",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
-    "public.generations": {
-      "name": "generations",
-      "schema": "",
+    "pelican.artifacts": {
+      "name": "artifacts",
+      "schema": "pelican",
       "columns": {
         "id": {
           "name": "id",
@@ -14,21 +14,95 @@
           "primaryKey": true,
           "notNull": true
         },
-        "project_id": {
-          "name": "project_id",
+        "step_id": {
+          "name": "step_id",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
-        "step_number": {
-          "name": "step_number",
+        "body": {
+          "name": "body",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "''"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "artifacts_step_id_steps_id_fk": {
+          "name": "artifacts_step_id_steps_id_fk",
+          "tableFrom": "artifacts",
+          "tableTo": "steps",
+          "schemaTo": "pelican",
+          "columnsFrom": [
+            "step_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "pelican.generations": {
+      "name": "generations",
+      "schema": "pelican",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "prompt": {
+          "name": "prompt",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "format": {
+          "name": "format",
+          "type": "formats",
+          "typeSchema": "pelican",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "width": {
+          "name": "width",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "height": {
+          "name": "height",
           "type": "integer",
           "primaryKey": false,
           "notNull": true
         },
         "provider": {
           "name": "provider",
-          "type": "text",
+          "type": "providers",
+          "typeSchema": "pelican",
           "primaryKey": false,
           "notNull": true
         },
@@ -44,9 +118,95 @@
           "primaryKey": false,
           "notNull": false
         },
-        "prompt_template": {
-          "name": "prompt_template",
+        "initial_template": {
+          "name": "initial_template",
           "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "refinement_template": {
+          "name": "refinement_template",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "pelican.images": {
+      "name": "images",
+      "schema": "pelican",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "gen_id": {
+          "name": "gen_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "images_gen_id_generations_id_fk": {
+          "name": "images_gen_id_generations_id_fk",
+          "tableFrom": "images",
+          "tableTo": "generations",
+          "schemaTo": "pelican",
+          "columnsFrom": [
+            "gen_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "pelican.steps": {
+      "name": "steps",
+      "schema": "pelican",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "gen_id": {
+          "name": "gen_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -56,18 +216,12 @@
           "primaryKey": false,
           "notNull": true
         },
-        "artifact_path": {
-          "name": "artifact_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
         "status": {
           "name": "status",
-          "type": "text",
+          "type": "status",
+          "typeSchema": "pelican",
           "primaryKey": false,
-          "notNull": true,
-          "default": "'pending'"
+          "notNull": true
         },
         "error_message": {
           "name": "error_message",
@@ -94,21 +248,40 @@
           "primaryKey": false,
           "notNull": false
         },
-        "rendered_image_path": {
-          "name": "rendered_image_path",
-          "type": "text",
+        "input_tokens": {
+          "name": "input_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "output_tokens": {
+          "name": "output_tokens",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "input_cost": {
+          "name": "input_cost",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "output_cost": {
+          "name": "output_cost",
+          "type": "real",
           "primaryKey": false,
           "notNull": false
         }
       },
       "indexes": {},
       "foreignKeys": {
-        "generations_project_id_projects_id_fk": {
-          "name": "generations_project_id_projects_id_fk",
-          "tableFrom": "generations",
-          "tableTo": "projects",
+        "steps_gen_id_generations_id_fk": {
+          "name": "steps_gen_id_generations_id_fk",
+          "tableFrom": "steps",
+          "tableTo": "generations",
+          "schemaTo": "pelican",
           "columnsFrom": [
-            "project_id"
+            "gen_id"
           ],
           "columnsTo": [
             "id"
@@ -122,134 +295,43 @@
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
-    },
-    "public.projects": {
-      "name": "projects",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "prompt": {
-          "name": "prompt",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "output_format": {
-          "name": "output_format",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "is_color": {
-          "name": "is_color",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "width": {
-          "name": "width",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 800
-        },
-        "height": {
-          "name": "height",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 600
-        },
-        "reference_image_path": {
-          "name": "reference_image_path",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.settings": {
-      "name": "settings",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "key": {
-          "name": "key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "value": {
-          "name": "value",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "settings_key_unique": {
-          "name": "settings_key_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "key"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
     }
   },
-  "enums": {},
-  "schemas": {},
+  "enums": {
+    "pelican.formats": {
+      "name": "formats",
+      "schema": "pelican",
+      "values": [
+        "svg",
+        "ascii"
+      ]
+    },
+    "pelican.providers": {
+      "name": "providers",
+      "schema": "pelican",
+      "values": [
+        "openai",
+        "anthropic",
+        "google",
+        "xai",
+        "openrouter",
+        "custom"
+      ]
+    },
+    "pelican.status": {
+      "name": "status",
+      "schema": "pelican",
+      "values": [
+        "pending",
+        "generating",
+        "completed",
+        "failed"
+      ]
+    }
+  },
+  "schemas": {
+    "pelican": "pelican"
+  },
   "sequences": {},
   "roles": {},
   "policies": {},

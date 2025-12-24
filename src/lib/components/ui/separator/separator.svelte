@@ -14,9 +14,9 @@
 	bind:ref
 	data-slot={dataSlot}
 	class={cn(
-		'shrink-0',
-		'data-[orientation=horizontal]:h-0 data-[orientation=horizontal]:w-full data-[orientation=horizontal]:border-t data-[orientation=horizontal]:border-border',
-		'data-[orientation=vertical]:h-full data-[orientation=vertical]:w-0 data-[orientation=vertical]:border-l data-[orientation=vertical]:border-border',
+		'shrink-0 border-border',
+		'data-[orientation=horizontal]:h-0 data-[orientation=horizontal]:w-full data-[orientation=horizontal]:border-t',
+		'data-[orientation=vertical]:h-full data-[orientation=vertical]:w-0 data-[orientation=vertical]:border-l',
 		className
 	)}
 	{...restProps} />

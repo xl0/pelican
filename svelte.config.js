@@ -18,9 +18,11 @@ const config = {
 	},
 
 	compilerOptions: {
+		runes: true,
 		experimental: {
 			async: true
-		}
+		},
+
 	},
 	vitePlugin: {
 		inspector: true

@@ -6,14 +6,28 @@
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { providerLabel, providers } from '$lib/models';
 	import * as p from '$lib/persisted.svelte';
+	import { cn } from '$lib/utils';
 	import { Eye, EyeOff, Info, Trash2 } from '@lucide/svelte';
 
-	// Local UI state
 	let showApiKey = $state(false);
-	// let apiKeyValue = $state(getApiKey(provider.current));
 
-	// Derived
-	// const providerLabel = $derived(providers[provider.current]?.label || "Custom");
+	const selectedProvider = $derived(p.provider.current);
+	const selectedModel = $derived(p.selected_model.current[selectedProvider]);
+
+	// If no model has been selected in this provider, select the first one.
+	$effect(() => {
+		if (!p.selected_model.current[selectedProvider]) {
+			p.selected_model.current[selectedProvider] = providers[p.provider.current].models[0].value
+		}
+	})
+
+	const modelLabel = $derived.by(() => {
+		if (selectedModel === 'custom') return 'Custom Model';
+		const providerModels = providers[selectedProvider]?.models || [];
+		return providerModels.find((m) => m.value === selectedModel)?.label || selectedModel || 'Select a model';
+	});
+
+	const endpointPlaceholder = $derived(selectedProvider === 'custom' ? 'e.g. https://api.openai.com/v1' : 'Leave empty for default');
 </script>
 
 <div class="space-y-3">
@@ -32,37 +46,45 @@
 			</Select>
 		</div>
 
-		<!--
-    {#if provider.current !== 'custom'}
-      <div class="space-y-1.5">
-        <Label for="model-select" class="text-xs font-semibold text-slate-700 dark:text-slate-300">Model</Label>
-        <Select type="single" bind:value={selected_model.current}>
-          <SelectTrigger class="border-slate-300 dark:border-slate-700 h-8 text-sm">
-            {selected_model.current === 'custom' ? 'Custom Model' : providers[provider.current].models.find(m => m.value === selected_model.current)?.label || selected_model.current}
-          </SelectTrigger>
-          <SelectContent>
-            {#each providers[provider.current].models as modelOption}
-              <SelectItem value={modelOption.value}>{modelOption.label}</SelectItem>
-            {/each}
-          </SelectContent>
-        </Select>
-      </div>
-    {/if} -->
+		{#if selectedProvider !== 'custom'}
+			<div class="space-y-1.5">
+				<Label for="model-select" class="text-xs font-semibold text-slate-700 dark:text-slate-300">Model</Label>
+				<Select type="single" bind:value={p.selected_model.current[selectedProvider]}>
+					<SelectTrigger class="border-slate-300 dark:border-slate-700 h-8 text-sm">
+						{modelLabel}
+					</SelectTrigger>
+					<SelectContent>
+						{#each providers[selectedProvider].models as modelOption}
+							<SelectItem value={modelOption.value}>{modelOption.label}</SelectItem>
+						{/each}
+						<SelectItem value="custom">Custom...</SelectItem>
+					</SelectContent>
+				</Select>
+			</div>
+		{/if}
 	</div>
 
-	<!-- {#if selected_model.current === 'custom' || provider.current === 'custom'}
-     <div class="space-y-1.5">
-       <Label for="custom-model-id" class="text-xs font-semibold text-slate-700 dark:text-slate-300">Custom Model ID</Label>
-       <Input id="custom-model-id" bind:value={customModelId.current} placeholder="e.g. my-finetuned-model" class="border-slate-300 dark:border-slate-700 h-8 text-sm" />
-     </div>
-  {/if} -->
+	{#if selectedModel === 'custom' || selectedProvider === 'custom'}
+		<div class="space-y-1.5">
+			<Label for="custom-model-id" class="text-xs font-semibold text-slate-700 dark:text-slate-300">Custom Model ID</Label>
+			<Input
+				id="custom-model-id"
+				bind:value={p.selected_model.current[selectedProvider]}
+				placeholder="e.g. my-finetuned-model"
+				class="border-slate-300 dark:border-slate-700 h-8 text-sm" />
+		</div>
+	{/if}
 
-	<!-- {#if provider.current === 'custom'}
-    <div class="space-y-1.5">
-      <Label for="endpoint" class="text-xs font-semibold text-slate-700 dark:text-slate-300">API Endpoint</Label>
-      <Input id="endpoint" bind:value={endpoint.current} placeholder="https://api.openai.com/v1" class="border-slate-300 dark:border-slate-700 h-8 text-sm" />
-    </div>
-  {/if} -->
+	<div class="space-y-1.5">
+		<Label for="endpoint" class="text-xs font-semibold text-slate-700 dark:text-slate-300">
+			API Endpoint {#if selectedProvider === 'custom'}<span class="text-destructive">*</span>{/if}
+		</Label>
+		<Input
+			id="endpoint"
+			bind:value={p.endpoint.current[selectedProvider]}
+			placeholder={endpointPlaceholder}
+			class="border-slate-300 dark:border-slate-700 h-8 text-sm" />
+	</div>
 
 	<div class="space-y-1.5">
 		<div class="flex items-center gap-1.5">
@@ -87,11 +109,12 @@
 		</div>
 		<div class="flex gap-1">
 			<Input
-				type={showApiKey ? 'text' : 'password'}
 				id="api-key"
 				bind:value={p.apiKeys.current[p.provider.current]}
 				placeholder={`Enter ${providerLabel(p.provider.current)} API Key`}
-				class="border-border h-8 text-sm" />
+				class={cn('border-border h-8 text-sm', !showApiKey && 'security-disc')}
+				autocomplete="off"
+				spellcheck="false" />
 			<Button
 				variant="outline"
 				size="icon"
@@ -129,3 +152,9 @@
 		</div>
 	</div>
 </div>
+
+<style>
+	:global(.security-disc) {
+		-webkit-text-security: disc;
+	}
+</style>

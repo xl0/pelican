@@ -1,77 +1,52 @@
 <script lang="ts">
-	import { cn } from '$lib/utils';
-	import { markdown } from '@codemirror/lang-markdown';
-	import { oneDark } from '@codemirror/theme-one-dark';
-	import { EditorView } from '@codemirror/view';
-	import { CircleAlert } from '@lucide/svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Label } from '$lib/components/ui/label';
 	import { Switch } from '$lib/components/ui/switch';
-	import CodeMirror from 'svelte-codemirror-editor';
+	import { cn } from '$lib/utils';
+	import { markdown } from '@codemirror/lang-markdown';
 	import { linter, type Diagnostic } from '@codemirror/lint';
-	import { app } from '$lib/appstate.svelte';
-	import * as p from '$lib/persisted.svelte';
+	import { oneDark } from '@codemirror/theme-one-dark';
+	import { EditorView } from '@codemirror/view';
+	import { CircleAlert } from '@lucide/svelte';
+	import CodeMirror from 'svelte-codemirror-editor';
 
 	import dbg from 'debug';
 	import nunjucks from 'nunjucks';
+	import type { PersistedState } from 'runed';
 	const debug = dbg('app:components:PromptEditor');
 
 	// Configure nunjucks to be minimal and throw on undefined variables as requested
 	const env = new nunjucks.Environment(null, { autoescape: false, throwOnUndefined: true });
 
-	let { isInitialPrompt = true, class: className }: { isInitialPrompt: boolean; class?: string } = $props();
+	let {
+		template,
+		rendered = $bindable(),
+		title,
+		context,
+		class: className
+	}: {
+		template: PersistedState<string>;
+		rendered: string;
+		title: string;
+		context: Record<string, string | number>;
+		class?: string;
+	} = $props();
 
 	let syntaxError = $state<string | null>(null);
-
-	let rendered = $derived.by(() => {
-		if (isInitialPrompt) return app.renderedPrompt;
-		return app.renderedRefinementPrompt;
-	});
-
-	let template = $derived.by(() => {
-		if (isInitialPrompt) {
-			if (p.outputFormat.current == 'svg') return p.initialTemplate;
-			return p.asciiInitialTemplate;
-		}
-		if (p.outputFormat.current == 'svg') return p.refinementTemplate;
-		return p.asciiRefinementTemplate;
-	});
-
-	let context = $derived.by(() => {
-		if (p.outputFormat.current == 'svg')
-			return {
-				prompt: p.prompt.current,
-				width: p.svgWidth.current,
-				height: p.svgHeight.current
-			};
-		return {
-			prompt: p.prompt,
-			width: p.asciiWidth,
-			height: p.asciiHeight
-		};
-	});
-
-	const title = $derived.by(() => {
-		const left = isInitialPrompt ? 'Initial prompt template ' : 'Refinement prompt template ';
-		return left + p.outputFormat.current === 'svg' ? '(svg)' : '(ascii)';
-	});
 
 	let requiredVariables = ['prompt'];
 	let showPreview = $state(false);
 
 	$effect(() => {
 		try {
-			// const c = Object.fromEntries(Object.entries(context).map(([k, v]) => [k, v.current]));
-			// debug({ context: c });
 			rendered = env.renderString(template.current, context);
 		} catch (e: any) {
-			`Error rendering preview: ${e.message.replace('(unknown path) ', '').trim()}`;
+			rendered = `Error rendering preview: ${e.message.replace('(unknown path) ', '').trim()}`;
 		}
 	});
 
-	// // Linter function for CodeMirror4
+	// // Linter function for CodeMirror
 	const syntaxLinter = linter((view) => {
-		debug('lint', { template, context });
 		const diagnostics: Diagnostic[] = [];
 		const content = view.state.doc.toString();
 

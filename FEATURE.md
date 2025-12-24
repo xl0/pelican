@@ -1,488 +1,234 @@
-# Image Converter Webapp - Feature Status
-
-## Overview
+# Pelican - AI Image Generator
 
 A web application that converts prompts and reference images into SVG or ASCII art using AI models, with progressive multi-step refinement capabilities.
 
-## Current Status: ✅ Fully Functional
-
-### Core Features Implemented
-
-#### 1. Frontend UI (SvelteKit + Shadcn)
-
-- [x] **Input Controls**
-  - Prompt input with default: "Pelican riding a bicycle"
-  - Reference image upload (optional, vision-capable models only)
-  - Output format selection (SVG/ASCII)
-  - **Aspect Ratio Selection**: Preset buttons for 1:1, 4:3, 16:9, 3:4, 9:16 (with custom option)
-  - Refinement steps slider (1-5, default: 5)
-
-- [x] **Preview & History**
-  - Real-time streaming preview during generation
-  - Progressive rendering with DOMPurify SVG sanitization
-  - History bar showing all refinement steps
-  - Click any history item to view that version
-  - **Raw Output View**: Toggle to display complete model output including thinking process
-  - Raw output shown in separate card below preview for simultaneous viewing
-  - Download generated images
-  - ASCII preview/history now rendered via `svelte-asciiart` (`AsciiArt`) rather than generating an SVG wrapper in-app
-
-- [x] **Advanced Settings**
-  - Provider selection (OpenAI, Anthropic, Google, xAI, OpenRouter, Custom)
-  - Model selection with latest models (default: Anthropic Claude Haiku 4.5)
-  - **Custom Model Support**: Ability to specify any custom model ID for any provider
-  - API key management (per-provider, stored in localStorage)
-  - Clear key / Clear all keys functionality
-  - Custom endpoint configuration
-  - Prompt template editing (Initial & Refinement)
-
-#### 2. AI Generation
-
-- [x] **Client-Side Generation**
-  - Uses Vercel AI SDK with `streamText` for real-time updates
-  - Supports multiple providers via unified interface
-  - Streaming text with progressive UI updates
-  - `anthropic-dangerous-direct-browser-access` header for browser usage
-  - **Thinking Tokens**: Encourages model to think, rephrase, and visualize before generating SVG
-
-- [x] **Multi-Step Refinement**
-  - Configurable refinement steps (1-5)
-  - Full conversation history maintained across steps
-  - Previous generation rendered as PNG and sent to model
-  - Detailed refinement prompts encouraging significant improvements
-  - **Enhanced Error Detection**: SVG parsing with line/column error reporting
-
-- [x] **Error Handling**
-  - **Precise Error Location**: DOMParser extracts line and column numbers from SVG errors
-  - **Code Context**: Shows 2-3 lines before/after error with visual markers (`>>>` and `^`)
-  - Error messages sent to model without redundant code (references previous message)
-  - SVG sanitization with DOMPurify for partial rendering
-  - ASCII art rendered as SVG text elements (no canvas tainting)
-
-- [x] **Dimension Control**
-  - Target dimensions passed to model in prompts (`{{width}}x{{height}}`)
-  - System prompts include complete SVG opening tag with `xmlns` attribute
-  - ASCII art given character grid dimensions based on aspect ratio
-  - Dimensions stored in database per project
-
-#### 3. Backend API (SvelteKit)
-
-- [x] **Database (PostgreSQL + Drizzle ORM)**
-  - Projects table (stores project metadata, width, height)
-  - Generations table (tracks each refinement step, raw output, rendered image path)
-  - Settings table (user preferences)
-  - Database migrations via `drizzle-kit generate` and `drizzle-kit migrate`
-
-- [x] **API Endpoints**
-  - `/api/projects` - List and create projects
-  - `/api/projects/[id]` - Get, update, delete project
-  - `/api/generations` - Create generation record
-  - `/api/generations/[id]` - Update generation status and rendered image path
-  - `/api/artifacts/reference` - Save reference image
-  - `/api/artifacts/generation` - Save generated artifact (SVG, ASCII, or PNG)
-
-- [x] **Filesystem Service**
-  - Artifact storage in `artifacts/projects/{id}/`
-  - Reference images: `ref.{ext}`
-  - Generated artifacts: `gen_{step}.{format}`
-  - **Rendered images**: `gen_{step}.png` (saved immediately after each generation)
-  - Base64 support for PNG artifacts
-
-#### 4. Model Support & Capabilities
-
-**Model Capability Detection**
-
-- [x] `supportsImageInput()` helper function to check vision capabilities
-- [x] Static detection based on model ID patterns (no runtime API available)
-- [x] Provider-specific checks for OpenAI, Anthropic, Google, xAI, OpenRouter
-
-**Anthropic (Default)**
-
-- Claude 4.5 Opus, Sonnet, Haiku ✅ Vision
-- Claude 4.1 Opus ✅ Vision
-- Claude 4.0 Opus, Sonnet ✅ Vision
-- Claude 3.7 Sonnet ✅ Vision
-- Claude 3.5 Haiku, Sonnet (Legacy) ✅ Vision
-- Claude 3 Opus, Sonnet, Haiku (Legacy) ✅ Vision
-
-**OpenAI**
-
-- GPT-4o, GPT-4o Mini ✅ Vision
-- GPT-5.1, GPT-5.1 Thinking ✅ Vision
-- O1, O1 Mini, O3 Mini ✅ Vision
-- GPT-4 Turbo with Vision ✅ Vision
-
-**Google**
-
-- Gemini 2.0 Flash ✅ Vision
-- Gemini 3 Pro ✅ Vision
-
-**xAI**
-
-- Grok Beta, 4.1, 4.1 Fast ✅ Vision
-
-**OpenRouter & Custom**
-
-- Any OpenAI-compatible endpoint
-- Vision support detected by model ID patterns
-
-## Technical Highlights
-
-### Streaming Architecture
-
-- **Real-time updates**: Uses `onChunk` callback to update UI during generation
-- **Progressive rendering**: DOMPurify sanitizes partial SVG for browser display
-- **Conversation history**: Full message history maintained for context
-- **Thinking Tokens**: Model output is parsed to separate thinking process from SVG code
-- **Dual display**: Preview and raw output can be viewed simultaneously
-
-### Image Feedback Loop
-
-- **SVG**: Direct PNG conversion via canvas (800x600 standardized)
-- **ASCII**: Rendered as SVG `<text>` elements to avoid canvas tainting
-- **Error recovery**: Failed renders trigger detailed error messages with precise location info
-- **Immediate saving**: PNG artifacts saved after each generation step, not at the end
-
-### Enhanced Error Reporting
-
-- **XML Parsing**: DOMParser used to extract precise error information
-- **Line/Column Numbers**: Extracted from parser error messages
-- **Code Context**: Shows surrounding lines with visual markers
-- **Smart Feedback**: Only error details sent to model (SVG already in conversation history)
-
-### Security & Privacy
-
-- **Client-side generation**: API keys never sent to server
-- **Per-provider storage**: Keys stored in localStorage by provider
-- **CORS handling**: `anthropic-dangerous-direct-browser-access` header
-- **SVG sanitization**: DOMPurify prevents XSS attacks
-
-## Default Configuration
-
-- **Provider**: Anthropic
-- **Model**: claude-haiku-4-5
-- **Refinement Steps**: 5
-- **Output Format**: SVG
-- **Aspect Ratio**: 4:3 (800x600)
-
-## Known Limitations
-
-- Requires vision-capable models for image-based refinement
-- Browser-based generation requires CORS-compatible APIs
-- Canvas size standardized at 800x600 for PNG conversion (aspect ratio maintained in SVG)
-- Model capability detection is static (no runtime API from providers)
-
-## Recent Enhancements (Dec 2024)
-
-- ✅ Fixed deprecated Lucide icons (replaced `AlertCircle` with `CircleAlert`, `Wand2` with `WandSparkles`)
-- ✅ Revitalized switch component with better contrast and "seated" thumb positions to avoid a disabled look
-- ✅ Consolidated UI icons to use Lucide components (e.g. `Trash2`)
-- ✅ Enhanced prompt preview to use CodeMirror for consistent styling and syntax highlighting
-- ✅ Improved Nunjucks variable check in `PromptEditor.svelte` to support whitespace and filters
-- ✅ Resolved TypeScript catch clause type error in `PromptEditor.svelte`
-- ✅ Aspect ratio controls with preset buttons
-- ✅ Raw output viewing in separate card
-- ✅ Enhanced SVG error reporting with line/column numbers
-- ✅ Complete SVG opening tag with xmlns in prompts
-- ✅ Dimension-aware generation for both SVG and ASCII
-- ✅ Immediate PNG artifact saving
-- ✅ Model capability detection helper function
-- ✅ Database schema updates for dimensions and rendered images
-
-## S3 Migration (Dec 18, 2024) - COMPLETE
-
-### Infrastructure
-
-- **S3 Bucket**: `pelican-artifacts`
-- **CloudFront**: `d3rybyofuhagdh.cloudfront.net`
-- **IAM User**: `pelican-uploader`
-
-### S3 Key Structure
+## Project Structure
 
 ```
-{generationId}/input/{imageId}.{ext}    # Input images (Buffer)
-{generationId}/step_{order}.{ext}       # Artifacts (svg, txt)
+pelican/
+├── src/
+│   ├── lib/
+│   │   ├── server/
+│   │   │   ├── db/
+│   │   │   │   ├── schema.ts      # Drizzle schema (PostgreSQL)
+│   │   │   │   └── index.ts       # DB operations (db_* functions)
+│   │   │   └── s3/
+│   │   │       └── index.ts       # S3 upload functions
+│   │   ├── components/            # Svelte 5 components (shadcn-svelte)
+│   │   ├── data.remote.ts         # SvelteKit remote functions (query/command)
+│   │   ├── models.ts              # Provider/model definitions + pricing
+│   │   ├── prompts.ts             # Default prompt templates
+│   │   ├── appstate.svelte.ts     # Transient app state (two-tier pattern)
+│   │   ├── persisted.svelte.ts    # LocalStorage persistence
+│   │   ├── generation.svelte.ts   # Client-side generation logic
+│   │   └── svg.ts                 # SVG utilities
+│   └── routes/
+│       ├── +layout.svelte         # App layout with Toaster
+│       ├── +page.svelte           # Main generation page
+│       └── [id]/                   # Generation detail route
+├── drizzle/                       # Migration files (needs regeneration)
+├── infra/                         # Terraform (S3, CloudFront, IAM)
+└── static/
 ```
 
-### API
+## State Management
 
-- `uploadInputImage(generationId, imageId, data: Buffer, extension)` → returns S3 key
-- `uploadStepArtifact(generationId, stepOrder, content: string, format: "svg"|"ascii")` → returns S3 key
-- Client constructs URL: `https://${PUBLIC_CLOUDFRONT_URL}/${key}`
+Uses `app.currentGeneration` as the single source of truth for the current generation being edited/viewed.
+
+1. **New Generation Mode** (no ID in URL):
+   - `app.initFromPersisted()` creates a "dummy" generation object
+   - Values come directly from `persisted` (localStorage)
+   - UI binds to `app.currentGeneration.*`
+   - Edits update both `currentGeneration` and are immediately persisted
+
+2. **Viewing Existing Generation** (ID in URL):
+   - `getGeneration({ id })` query fetches from DB
+   - Result is assigned to `app.currentGeneration`
+   - UI binds to the same reactive object
+   - Edits are local only (not saved back to DB)
+
+3. **Generating**:
+   - Create new generation record in DB from `currentGeneration`
+   - Navigate to new generation's URL
 
 ### Files
 
-- `infra/` - Terraform (S3, CloudFront, IAM)
-- `src/lib/server/s3/index.ts` - S3 upload functions
-- `src/lib/server/fs/service.ts` - delegates to S3
+- **`persisted.svelte.ts`** - localStorage persistence using `runed`'s `PersistedState`
+- **`appstate.svelte.ts`** - AppState class with:
+  - `currentGeneration` - The reactive generation object (DB record shape)
+  - `initFromPersisted()` - Creates dummy generation from localStorage
+  - UI state fields (`isGenerating`, `referenceImageFile`, etc.)
+  - Legacy fields (being migrated to `currentGeneration`)
 
----
+### What's Where
 
-## Next Steps (Future Enhancements)
+| Value          | persisted | currentGeneration | DB generation |
+| -------------- | --------- | ----------------- | ------------- |
+| prompt         | ✓         | ✓                 | ✓             |
+| format         | ✓         | ✓                 | ✓             |
+| dimensions     | ✓         | ✓                 | ✓             |
+| provider/model | ✓         | ✓                 | ✓             |
+| templates      | ✓         | ✓                 | ✓             |
+| steps          | ✗         | ✓ (empty)         | ✓             |
+| apiKeys        | ✓         | ✗                 | ✗             |
+| isGenerating   | ✗         | ✗ (in AppState)   | ✗             |
 
+### Note: One-Way Binding
+
+`generationFromPersisted()` creates a **snapshot** of persisted values at call time. The `currentGeneration` object is not reactively linked to localStorage — edits to `app.currentGeneration.prompt` do NOT automatically save to `p.prompt.current`.
+
+**Strategy:** Save to localStorage when the user clicks "Generate". Call a `commitToPersisted(gen)` function that writes `currentGeneration` values back to persisted before inserting to DB.
+
+## Database Schema
+
+Uses PostgreSQL with Drizzle ORM. All tables are in the `pelican` schema.
+
+> **Important:** The database is shared with other projects. Do NOT modify or drop the `public` schema in any scripts or migrations. All application data resides in the `pelican` schema.
+
+### Tables
+
+**`generations`** - Top-level generation record
+
+- `id` (uuid, PK) - Auto-generated
+- `userId` (uuid) - Browser-generated user ID for retrieval
+- `title` (text) - Display title
+- `prompt` (text) - User's generation prompt
+- `format` (enum: svg, ascii) - Output format
+- `width`, `height` (int) - Target dimensions
+- `provider` (enum) - openai, anthropic, google, xai, openrouter, custom
+- `model` (text) - Model identifier
+- `endpoint` (text, nullable) - Custom endpoint URL
+- `initialTemplate`, `refinementTemplate` (text) - Prompt templates
+- `createdAt`, `updatedAt` (timestamp)
+
+**`steps`** - Individual refinement steps within a generation
+
+- `id` (serial, PK) - Global auto-increment ensures ordering
+- `generationId` (uuid, FK → generations)
+- `renderedPrompt` (text) - Rendered prompt sent to model
+- `status` (enum: pending, generating, completed, failed)
+- `errorMessage` (text, nullable)
+- `rawOutput` (text, nullable) - Full model output including thinking
+- `inputTokens`, `outputTokens` (int, nullable) - Token usage
+- `inputCost`, `outputCost` (real, nullable) - Cost in USD
+- `createdAt`, `completedAt` (timestamp)
+
+**`artifacts`** - Output content from a step (model may produce multiple)
+
+- `id` (serial, PK)
+- `stepId` (int, FK → steps)
+- `body` (text) - SVG/ASCII content
+
+**`inputImages`** - Reference images for a generation
+
+- `id` (uuid, PK) - Also used as S3 key component
+- `generationId` (uuid, FK → generations)
+
+### Types
+
+- `Generation` - Select type (all fields)
+- `NewGeneration` - Insert type (required fields, no id)
+- `UpdateGeneration` - Update type (id required, all else optional)
+- Same pattern for `Step`, `NewStep`, `UpdateStep`
+
+### Relations
+
+- generation → many steps → many artifacts
+- generation → many inputImages
+
+## Backend API
+
+### Remote Functions (`src/lib/data.remote.ts`)
+
+Uses SvelteKit's `query` and `command` wrappers with Valibot validation.
+
+**Queries:**
+
+- `getGeneration({ id })` - Get generation with steps, artifacts, inputImages
+- `getGenerations({ userId })` - List user's generations (summary)
+- `getStep({ id })`, `getSteps({ generationId })`
+- `getArtifact({ id })`, `getArtifacts({ stepId })`
+- `getInputImage({ id })`, `getInputImages({ generationId })`
+
+**Commands:**
+
+- `insertGeneration({ userId, title, prompt, format, ... })` - Create new
+- `updateGeneration({ id, ...partial })` - Update existing (any fields)
+- `insertStep({ generationId, renderedPrompt, status })` - Create step
+- `updateStep({ id, ...partial })` - Update step (status, tokens, cost, etc.)
+- `uploadInputImage({ generationId, data: File, extension })` - DB + S3
+- `uploadArtifact({ generationId, stepId, content, format })` - DB + S3
+
+### S3 Storage (`src/lib/server/s3/index.ts`)
+
+**Bucket:** `pelican-artifacts`
+**CloudFront:** `d3rybyofuhagdh.cloudfront.net`
+
+**Key Structure:**
+
+```
+{generationId}/input/{imageId}.{ext}     # Reference images
+{generationId}/{stepId}_{artifactId}.{ext}  # Artifacts (svg, txt)
+```
+
+Client constructs URLs: `https://${PUBLIC_CLOUDFRONT_URL}/${key}`
+
+## AI Generation (Client-Side)
+
+Generation happens entirely in the browser using Vercel AI SDK.
+
+**Supported Providers:**
+
+- OpenAI (GPT-4o, o3-mini, GPT-4o Mini)
+- Anthropic (Claude 3.5 Sonnet/Haiku, Claude 3 Opus/Sonnet/Haiku)
+- Google (Gemini 1.5 Pro/Flash, Gemini 2.0 Flash)
+- xAI (Grok Beta, Grok Vision Beta)
+- OpenRouter (various models)
+- Custom (any OpenAI-compatible endpoint)
+
+**Flow:**
+
+1. User provides prompt + optional reference image
+2. Client generates using `streamText` with `onChunk` callbacks
+3. Progressive SVG/ASCII rendering with sanitization (DOMPurify)
+4. Each step tracked with tokens/cost, saved to DB
+5. Artifacts uploaded to S3
+
+**Security:**
+
+- API keys stored in localStorage per-provider
+- Keys sent directly to provider, never to our server
+- `anthropic-dangerous-direct-browser-access` header for Anthropic
+
+## Current Status
+
+### Frontend (Being Refactored)
+
+UI components in `src/lib/components/` using Svelte 5 runes and shadcn-svelte.
+
+- ✅ currentGeneration-based state management
+- [ ] Update UI components to bind to `app.currentGeneration.*`
+
+### Backend (Stable)
+
+- ✅ Database schema defined in `src/lib/server/db/schema.ts`
+- ✅ DB operations in `src/lib/server/db/index.ts` (prefixed with `db_`)
+- ✅ Remote functions in `src/lib/data.remote.ts`
+- ✅ S3 integration for artifact storage
+- ✅ Debug logging throughout (`DEBUG="app:*"`)
+- ✅ Migrations regenerated and verified
+
+## TODO
+
+- [x] Generate new Drizzle migrations for current schema
+- [x] Add seed script for development data (`bun run src/scripts/seed-db.ts`)
+- [x] Two-tier state management pattern → refactored to `currentGeneration`
+- [ ] Update UI to bind to `app.currentGeneration.*` instead of `p.*`
+  - [ ] OutputSettings.svelte
+  - [ ] ModelSettings.svelte
+  - [ ] PromptTemplates.svelte
+  - [ ] +layout.svelte (prompt textarea)
+- [ ] Remove legacy fields from AppState class
 - [ ] Conditional UI based on model vision capabilities
 - [ ] Fork generation from specific history step
-- [ ] Export full refinement sequence as animation
-- [ ] Batch generation with variations
-- [ ] Model comparison mode (A/B testing)
-- [ ] Custom dimension input (beyond presets)
-- [ ] Server-side generation option for non-CORS APIs
-- [ ] Copy SVG code to clipboard functionality
-
-## Current Implementation Plan (Dec 4, 2024)
-
-### UI/UX Improvements
-
-#### 1. Configuration Tab Consolidation ✅
-
-- **Current**: 3 tabs (Gen, Model, Prompt)
-- **Target**: 1 consolidated "Configuration" tab
-- **Rationale**: Simplifies navigation, all settings in one place
-
-#### 2. Hide Model Selection for Custom Provider ✅
-
-- **Current**: Shows model dropdown even for custom provider
-- **Target**: Only show custom model ID input for custom provider
-- **Rationale**: Custom provider doesn't use predefined models
-
-#### 3. Collapsible Prompt Templates ✅
-
-- **Current**: Prompt templates always expanded
-- **Target**: Use Collapsible component, collapsed by default
-- **Rationale**: Reduces visual clutter, advanced feature
-
-#### 4. API Key Security Notice ✅
-
-- **Current**: Generic localStorage notice
-- **Target**: Add (i) icon with tooltip explaining:
-  - API key saved locally on user's computer
-  - Never sent to our server
-  - Only sent directly to the provider
-- **Rationale**: Transparency about data handling
-
-#### 5. Public Generations Warning ✅
-
-- **Current**: No warning about public nature
-- **Target**: Add prominent notice that all generations are public
-- **Rationale**: User privacy awareness
-
-#### 6. Password Reveal Button ✅
-
-- **Current**: Password input with no reveal option
-- **Target**: Add eye icon button to toggle password visibility
-- **Rationale**: Better UX, verify API key entry
-
-#### 7. Responsive Layout Improvements ✅
-
-- **Current**: lg:col-span-4 (left) / lg:col-span-8 (right)
-- **Target**: lg:col-span-5 (left) / lg:col-span-7 (right), stack vertically on small screens
-- **Rationale**: More space for controls, better mobile experience
-
-#### 8. Handle Multiple SVG Generations ✅
-
-- **Current**: Takes first SVG code block
-- **Target**: Take the LAST SVG code block if multiple exist
-- **Rationale**: Model might generate examples then final version
-
-#### 9. Iteration Context Options ✅
-
-- **Current**: Sends full conversation history
-- **Target**: Add option to send only last step or full history
-- **Rationale**: Reduce token usage, faster iterations
-- **Implementation**: Add toggle in settings
-
-#### 10. Custom Styling (Less Shadcn-y) ✅
-
-- **Current**: Standard shadcn aesthetic
-- **Target**: More unique, custom styling
-- **Rationale**: Differentiate from generic shadcn apps
-- **Ideas**:
-  - Custom color scheme (less purple/blue)
-  - Unique card styles
-  - Custom button variants
-  - More personality in typography
-
-### Implementation Order
-
-1. ✅ Consolidate tabs (remove Model and Prompt tabs)
-2. ✅ Hide model dropdown for custom provider
-3. ✅ Add Collapsible for prompt templates
-4. ✅ Add API key info tooltip with icon
-5. ✅ Add public generations warning
-6. ✅ Add password reveal button
-7. ✅ Adjust grid layout (col-span-5/7)
-8. ✅ Fix SVG extraction to take last occurrence
-9. ✅ Add iteration context toggle
-10. ✅ Apply custom styling throughout
-
-### Implementation Summary (Completed Dec 4, 2024)
-
-All planned UI/UX improvements have been implemented:
-
-- **Single Configuration Tab**: Removed the 3-tab layout (Gen/Model/Prompt) and consolidated everything into a single scrollable configuration panel
-- **Custom Provider UX**: Model dropdown is now hidden when "Custom" provider is selected, showing only the custom model ID input
-- **Collapsible Templates**: Prompt templates are now in a collapsible section, collapsed by default to reduce clutter
-- **API Key Security**: Added info icon with tooltip explaining that API keys are stored locally and only sent to the provider
-- **Public Warning**: Added prominent amber alert badge in header warning users that all generations are public
-- **Password Reveal**: Added eye/eye-off icon button to toggle API key visibility
-- **Wider Left Panel**: Changed from 4/8 split to 5/7 split (lg:col-span-5 / lg:col-span-7)
-- **Multiple SVG Handling**: Updated SVG extraction to take the LAST occurrence if model generates multiple SVG blocks
-- **Iteration Context**: Added "Send Full History" toggle to control whether all steps or just the last step is sent during refinement
-- **Custom Styling**: Applied custom color scheme with orange/red/pink gradients, slate backgrounds, and removed generic shadcn purple/blue aesthetic
-- **Compact Layout**: Reduced margins, removed rounded corners, replaced cards with simple separators, smaller UI elements
-- **Component Refactoring**: Extracted major sections into reusable components (ModelSettings, OutputSettings)
-- **ASCII Dimensions**: For ASCII art, show character width x height inputs instead of aspect ratio buttons, with separate state from SVG dimensions
-- **Local Storage**: All settings (provider, model, dimensions, templates) and the last prompt are now saved to local storage
-- **Template Reset**: Added "Reset to Default" buttons for prompt templates
-
-## State Management Refactoring (Completed Dec 4, 2024)
-
-### Goals
-
-- Centralize all application state in `src/lib/state.svelte.ts` using Svelte 5 runes.
-- Centralize model definitions and pricing in `src/lib/models.ts`.
-- Remove prop drilling by consuming global state directly in components.
-- Implement cost tracking and token usage statistics.
-
-### Completed Status
-
-- ✅ `src/lib/models.ts` created with provider and model definitions.
-- ✅ `src/lib/state.svelte.ts` created with `AppState` class managing settings, history, and persistence.
-- ✅ `ModelSettings.svelte` and `OutputSettings.svelte` refactored to use `appState`.
-- ✅ `src/routes/+page.svelte` fully refactored to use `appState` throughout.
-  - All local state variables replaced with `appState` properties
-  - Components simplified to consume global state directly
-  - No more prop drilling - components access `appState` directly
-  - All bindings updated to use `appState` properties
-
-### Implementation Summary
-
-The refactoring successfully centralized all application state into a single reactive `AppState` class:
-
-- **Settings**: Provider, model, API keys, output format, dimensions, templates all managed in one place
-- **Generation State**: History, raw outputs, current project, reference image, generating flag
-- **Persistence**: Automatic localStorage sync for settings and last prompt
-- **Components**: ModelSettings and OutputSettings consume `appState` directly without props
-- **Main Page**: Completely refactored to use `appState` instead of local variables
-
-## Cost Tracking (Completed Dec 4, 2024)
-
-### Features
-
-- ✅ **Real-time Cost Calculation**: Automatically calculates cost for each generation step using model-specific pricing
-- ✅ **Token Usage Tracking**: Tracks input and output tokens for each step and session totals
-- ✅ **Session Totals**: Displays cumulative cost and token usage for the current session
-- ✅ **Per-Step Breakdown**: Shows detailed cost and token usage for each refinement step
-- ✅ **Collapsible Display**: Cost tracking UI is collapsible to save space
-- ✅ **Reset Functionality**: Ability to reset session costs
-
-### Implementation
-
-- Created `CostDisplay.svelte` component with collapsible UI
-- Added cost tracking methods to `AppState` class
-- Integrated with Vercel AI SDK's usage reporting
-- Uses pricing data from `models.ts` for accurate cost calculation
-- Displays formatted costs (e.g., $0.001 for sub-cent amounts)
-- Shows formatted token counts (e.g., 1.2K, 2.5M)
-
-## Separate ASCII Templates (Completed Dec 4, 2024)
-
-### Features
-
-- ✅ **Format-Specific Templates**: Separate prompt templates for SVG and ASCII art generation
-- ✅ **ASCII-Optimized Prompts**: Templates specifically designed for ASCII art generation
-- ✅ **Template Persistence**: ASCII templates are saved to localStorage along with SVG templates
-- ✅ **Reset to Defaults**: Individual reset buttons for each template type
-
-### Templates
-
-- **SVG Initial Template**: Optimized for creating SVG vector graphics
-- **SVG Refinement Template**: Focused on improving SVG quality and fixing errors
-- **ASCII Initial Template**: Optimized for creating ASCII art with character variety
-- **ASCII Refinement Template**: Focused on improving ASCII art composition and detail
-
-### Next Steps
-
-1. **Verify Functionality**:
-   - Test generation with different providers
-   - Test refinement steps
-   - Test persistence of settings
-   - Verify cost tracking accuracy
-2. **Add Cost Estimates**:
-   - Show estimated cost before generation
-   - Add cost warnings for expensive operations
-3. **Export Cost Reports**:
-   - Allow exporting cost history as CSV
-   - Add cost analytics and charts
-
-## Current Refactoring (Dec 16, 2024)
-
-### Goals
-
-- Modernize codebase to use Svelte 5 runes and SvelteKit remote functions
-- Replace custom `Persisted` class with `runed`'s `PersistedState`
-- Simplify state management by removing unnecessary class structure
-- Convert API endpoints to remote functions for type-safe client-server communication
-
-### Completed
-
-- [x] Convert `+layout.svelte` to runes (use `{@render children()}` instead of `<slot />`)
-- [x] Replace custom `Persisted<T>` class with `PersistedState` from `runed`
-- [x] Rename SVG dimension variables: `width` → `svgWidth`, `height` → `svgHeight`
-- [x] Remove `AppState` class - use standalone persisted variables and helper functions
-- [x] Move `showApiKey`, `aspectRatio`, `promptTemplatesOpen` to local component state
-- [x] Move `providerLabel` derivation to page/component level
-- [x] Update all components to use new state structure (ModelSettings, OutputSettings, CostDisplay)
-- [x] Convert all API calls to SvelteKit remote functions (`command` for mutations)
-  - Created `src/routes/data.remote.ts` with `createProject`, `createGeneration`, `updateGeneration`, `saveReferenceImage`, `saveGenerationArtifact`
-  - Uses valibot for input validation
-- [x] Simplify API key storage: single `PersistedState<Record<string, string>>` for all provider keys
-- [x] Move cost tracking to Generation records in database
-  - Added `inputTokens`, `outputTokens`, `cost` fields to `generations` table
-  - CostDisplay now accepts `generations` prop and computes totals from DB records
-- [x] Replace `alert()` with Sonner toast notifications
-  - Added Toaster to layout, using `toast.success()` and `toast.error()`
-- [x] Fix `svgToPngBase64` to extract dimensions from SVG viewBox/width/height
-- [x] Refactor state to reflect Project/Generation DB structure
-  - Replaced `generationState` with `projectState` (current Project + generations array)
-  - Added `uiState` for UI-only concerns (isGenerating, selectedStepIndex, streamingContent)
-  - Added `getSelectedGeneration()` helper and derived `generatedImage` state
-  - History thumbnails now render from `projectState.generations` array
-
-## Recent Enhancements (Dec 6, 2024)
-
-### ASCII Art Preview Improvements ✅
-
-- **Native SVG Text Rendering**: Replaced `foreignObject` based rendering with explicit SVG `<text>` elements. This eliminates layout inconsistencies caused by browser-specific foreignObject handling.
-- **Precision Grid Alignment**: Implemented a custom SVG layout engine that:
-  - Splits the ASCII content into individual lines.
-  - Positions each line with explicit Y-coordinates based on a fixed line height (18px).
-  - Uses `xml:space="preserve"` to ensure every space character is respected exactly as intended.
-  - Uses a robust monospace font stack (`'Courier New', monospace`) with fixed metrics (9px char width).
-- **Grid Visualization**: Added a subtle vector grid background and a dashed border that exactly matches the target character dimensions (e.g., 80x24), making it instantly obvious if the model's output deviates from the requested size.
-- **No More Distortion**: Removed aggressive `textLength` forcing which was causing unnatural character stretching. The text now renders naturally while staying perfectly aligned to the grid.
-
-### Preview & History UX Overhaul ✅
-
-- **Inline SVG Canvas**: Both the main preview window and the history thumbnails now use inline SVG rendering instead of static `<img>` tags.
-  - **Selectable Text**: You can now select and copy ASCII text directly from the preview window.
-  - **Crisp Scaling**: The history thumbnails use the SVG `viewBox` to scale perfectly to any size, avoiding blurriness.
-- **Smart History Switching**:
-  - **Auto-Follow**: If you are viewing the latest generation (or starting fresh), the preview automatically tracks the new generation in real-time.
-  - **Stay-Put**: If you are reviewing an older version while a new one is generating in the background, the view stays on your selected version.
-- **Loading States**: Added pulse animations to history items while they are being generated.
-
-### Raw Data Inspection ✅
-
-- **Enhanced Raw View**: The "Show Raw" toggle now reveals a comprehensive inspection panel.
-- **Inputs & Outputs**:
-  - **Model Input**: A collapsible section showing the _exact_ system prompt and user messages sent to the model for that specific step. Useful for debugging prompt templates.
-  - **Model Output**: The full raw output from the model, including thinking tags and other artifacts.
-- **State Tracking**: `rawInputs` are now tracked alongside `rawOutputs` in the application state, allowing full retrospective inspection of the generation process.
-
-### Reliability Fixes ✅
-
-- **Project Creation**: Fixed a critical bug where `projectId` was undefined due to Drizzle ORM returning an array instead of an object.
-- **Artifact Saving**: Ensured that the backend API correctly validates project IDs to prevent 500 errors.
-- **State Integrity**: Updated all API calls to correctly dereference `Persisted` state objects (using `.current`) before sending data to the server, fixing `[object Object]` errors in the database.
-- **Prompt Logic**: Cleaned up the conditional logic for showing SVG vs. ASCII prompt templates, ensuring the right tools are shown for the right job.
+- [ ] Export refinement sequence as animation

@@ -60,10 +60,11 @@
     "debug": "^4.4.3",
     "dompurify": "^3.3.1",
     "drizzle-orm": "^0.45.1",
+    "lucide-svelte": "^0.554.0",
     "nunjucks": "^3.2.4",
     "postgres": "^3.4.7",
     "runed": "^0.37.1",
-    "svelte-asciiart": "/home/xl0/work/projects/svelte-asciiart/packages/svelte-asciiart",
+    "svelte-asciiart": "^0.0.2",
     "svelte-codemirror-editor": "^2.1.0",
     "valibot": "^1.2.0"
   }
