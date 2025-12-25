@@ -18,6 +18,7 @@
 	import { Separator } from '$lib/components/ui/separator';
 	import { Switch } from '$lib/components/ui/switch';
 	import { getGeneration } from '$lib/data.remote';
+	import { generate } from '$lib/generate';
 	import * as p from '$lib/persisted.svelte';
 	import { ChevronDown, CircleAlert, WandSparkles } from '@lucide/svelte';
 	import dbg from 'debug';
@@ -52,6 +53,13 @@
 			generation.then((g) => {
 				debug('generation loaded from DB', { g });
 				app.currentGeneration = g;
+				// Store original templates for reset functionality
+				if (g) {
+					app.originalTemplates = {
+						initial: g.initialTemplate,
+						refinement: g.refinementTemplate
+					};
+				}
 				app.selectedStepIndex = undefined;
 				app.selectedArtifactIndex = undefined;
 			});
@@ -65,7 +73,7 @@
 	});
 </script>
 
-<Toaster />
+<Toaster richColors={false} theme="light" />
 
 {#if !isPublic}
 	<div class="min-h-screen bg-background p-3 font-sans">
@@ -127,10 +135,10 @@
 							</Collapsible.Root>
 
 							<div class="pt-3 border-t border-border">
-								<!-- onclick={handleGenerate} -->
 								<Button
 									class="w-full bg-linear-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold h-9 text-sm"
-									disabled={app.isGenerating}>
+									disabled={app.isGenerating}
+									onclick={() => generate(data.user)}>
 									{#if app.isGenerating}
 										<WandSparkles class="mr-2 h-4 w-4 animate-spin" />
 										Generating...
@@ -168,6 +176,15 @@
 												class="w-6 h-6 cursor-pointer border-0 p-0 bg-transparent" />
 										</div>
 									{/if}
+									{#if app.currentGeneration?.steps?.some((s) => s.rawOutput)}
+										<Button
+											variant="outline"
+											size="sm"
+											class="h-6 text-xs px-2"
+											onclick={() => (app.isStreaming ? app.stopStream() : app.simulateStream())}>
+											{app.isStreaming ? 'Stop' : 'Stream'}
+										</Button>
+									{/if}
 									<div class="flex items-center gap-2">
 										<Label for="show-raw" class="text-xs font-medium text-foreground">Show Raw</Label>
 										<Switch id="show-raw" bind:checked={showRawOutput} />
@@ -185,7 +202,7 @@
 					<div
 						class="border-l border-border pl-3 overflow-hidden transition-all duration-200 {showRawOutput
 							? 'w-1/2 opacity-100'
-							: 'w-0 opacity-0'}">
+							: 'w-0 opacity-0 hidden'}">
 						<div class="h-full flex flex-col p-3 min-w-0">
 							<div class="flex items-center justify-between pb-2 border-b border-border">
 								<h2 class="text-sm font-bold text-foreground">Raw Output</h2>

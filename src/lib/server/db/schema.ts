@@ -1,12 +1,13 @@
 import { providerNames } from '$lib/models';
 import { relations } from 'drizzle-orm';
 import { boolean, integer, pgSchema, real, serial, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { formatValues, statusValues } from '$lib/types';
+
+// Re-export for convenience
+export { formatValues, statusValues } from '$lib/types';
+export type { Format, Status } from '$lib/types';
 
 export const pelican = pgSchema('pelican');
-
-// Enum values (exported for validation reuse)
-export const formatValues = ['svg', 'ascii'] as const;
-export const statusValues = ['pending', 'generating', 'completed', 'failed'] as const;
 
 export const formatEnum = pelican.enum('formats', [...formatValues]);
 export const providerEnum = pelican.enum('providers', providerNames);

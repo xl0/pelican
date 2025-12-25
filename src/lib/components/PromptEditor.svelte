@@ -3,11 +3,11 @@
 	import { Label } from '$lib/components/ui/label';
 	import { Switch } from '$lib/components/ui/switch';
 	import { cn } from '$lib/utils';
-	import { markdown } from '@codemirror/lang-markdown';
+	import { jinja } from '@codemirror/lang-jinja';
 	import { linter, type Diagnostic } from '@codemirror/lint';
 	import { oneDark } from '@codemirror/theme-one-dark';
 	import { EditorView } from '@codemirror/view';
-	import { CircleAlert } from '@lucide/svelte';
+	import { CircleAlert, RotateCcw } from '@lucide/svelte';
 	import CodeMirror from 'svelte-codemirror-editor';
 
 	import dbg from 'debug';
@@ -18,16 +18,18 @@
 	const env = new nunjucks.Environment(null, { autoescape: false, throwOnUndefined: true });
 
 	let {
-		template = $bindable(),
+		template = $bindable(''),
 		rendered = $bindable(),
 		title,
 		context,
+		onReset,
 		class: className
 	}: {
 		template: string;
 		rendered: string;
 		title: string;
 		context: Record<string, string | number>;
+		onReset?: () => void;
 		class?: string;
 	} = $props();
 
@@ -124,15 +126,19 @@
 				<Label class="text-[10px] uppercase font-bold text-muted-foreground">Preview</Label>
 				<Switch bind:checked={showPreview} />
 			</div>
-			<!-- <Button variant="ghost" size="sm" onclick={() => template.reset()}>Reset</Button> -->
+			{#if onReset}
+				<Button variant="ghost" size="sm" class="h-6 px-2 text-xs" onclick={onReset}>
+					<RotateCcw class="h-3 w-3 mr-1" />Reset
+				</Button>
+			{/if}
 		</div>
 	</div>
 
 	{#if showPreview}
 		<div class="relative overflow-hidden rounded-md border border-border shadow-sm">
+			<!-- lang={markdown()} -->
 			<CodeMirror
 				value={rendered}
-				lang={markdown()}
 				theme={oneDark}
 				lineNumbers={false}
 				editable={false}
@@ -140,9 +146,10 @@
 		</div>
 	{:else}
 		<div class={'relative overflow-hidden rounded-md border border-border shadow-sm focus-within:ring-1 focus-within:ring-ring'}>
+			<!-- syntaxHighlighting={false} -->
+			<!-- lang={jinja()} -->
 			<CodeMirror
 				bind:value={template}
-				lang={markdown()}
 				theme={oneDark}
 				lineNumbers={false}
 				extensions={[EditorView.lineWrapping, syntaxLinter, errorTheme]} />

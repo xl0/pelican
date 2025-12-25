@@ -18,6 +18,14 @@ const DEV_USER_ID = process.env.DEV_AUTH_USER;
 const client = postgres(process.env.DATABASE_URL);
 const db = drizzle(client, { schema });
 
+// Fixed UUIDs for consistent seeding
+const GEN_IDS = {
+	pelican: '00000000-0000-0000-0000-000000000001',
+	cat: '00000000-0000-0000-0000-000000000002',
+	ascii: '00000000-0000-0000-0000-000000000003',
+	failedParse: '00000000-0000-0000-0000-000000000004'
+} as const;
+
 const SAMPLE_SVG_PELICAN = `<svg width="800" height="600" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
   <rect width="800" height="600" fill="#87CEEB"/>
   <ellipse cx="400" cy="350" rx="120" ry="80" fill="#FFFFFF"/>
@@ -126,6 +134,7 @@ async function seed() {
 	const [gen1] = await db
 		.insert(schema.generations)
 		.values({
+			id: GEN_IDS.pelican,
 			userId: DEV_USER_ID,
 			title: 'Pelican on the Beach',
 			prompt: 'A friendly pelican standing on a sandy beach with a blue sky',
@@ -190,6 +199,7 @@ async function seed() {
 	const [gen2] = await db
 		.insert(schema.generations)
 		.values({
+			id: GEN_IDS.cat,
 			userId: DEV_USER_ID,
 			title: 'Happy Orange Cat',
 			prompt: 'A cute orange tabby cat with green eyes sitting happily',
@@ -223,7 +233,7 @@ async function seed() {
 	await db.insert(schema.artifacts).values([
 		{ stepId: step2_1.id, body: makeCatSvg(1, 1, 0) }, // Orange
 		{ stepId: step2_1.id, body: makeCatSvg(1, 2, 1) }, // Purple
-		{ stepId: step2_1.id, body: makeCatSvg(1, 3, 2) }, // Red
+		{ stepId: step2_1.id, body: makeCatSvg(1, 3, 2) } // Red
 	]);
 
 	console.log(`  ✓ Created generation ${gen2.id} with 1 step (3 artifacts)\n`);
@@ -233,6 +243,7 @@ async function seed() {
 	const [gen3] = await db
 		.insert(schema.generations)
 		.values({
+			id: GEN_IDS.ascii,
 			userId: DEV_USER_ID,
 			title: 'ASCII Art Cat',
 			prompt: 'A simple cat in ASCII art style',
@@ -269,8 +280,74 @@ async function seed() {
 
 	console.log(`  ✓ Created generation ${gen3.id} with 1 step\n`);
 
+	// Generation 4: Raw output only, no artifacts (for testing edge case)
+	console.log('Creating Generation 4: Raw output only (no artifacts)...');
+	const [gen4] = await db
+		.insert(schema.generations)
+		.values({
+			id: GEN_IDS.failedParse,
+			userId: DEV_USER_ID,
+			title: 'Failed Parse Test',
+			prompt: 'A geometric pattern',
+			format: 'svg',
+			width: 800,
+			height: 600,
+			provider: 'anthropic',
+			model: 'claude-3-5-haiku-latest',
+			endpoint: null,
+			initialTemplate: 'Generate an SVG of: {{prompt}}',
+			refinementTemplate: 'Refine the SVG...'
+		})
+		.returning();
+
+	await db.insert(schema.steps).values({
+		generationId: gen4.id,
+		renderedPrompt: 'Generate an SVG of: A geometric pattern',
+		status: 'completed',
+		rawOutput: `Here's a geometric pattern with concentric circles:
+
+\`\`\`svg
+<svg width="800" height="600" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="600" fill="#1a1a2e"/>
+  <circle cx="400" cy="300" r="250" fill="none" stroke="#4a4e69" stroke-width="2"/>
+  <circle cx="400" cy="300" r="200" fill="none" stroke="#9a8c98" stroke-width="2"/>
+  <circle cx="400" cy="300" r="150" fill="none" stroke="#c9ada7" stroke-width="2"/>
+  <circle cx="400" cy="300" r="100" fill="none" stroke="#f2e9e4" stroke-width="2"/>
+  <circle cx="400" cy="300" r="50" fill="#22223b"/>
+</svg>
+\`\`\`
+
+Actually, let me give you a more visually interesting version with radial lines:
+
+\`\`\`svg
+<svg width="800" height="600" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="600" fill="#0d1b2a"/>
+  <g stroke="#778da9" stroke-width="1">
+    <line x1="400" y1="300" x2="400" y2="50"/>
+    <line x1="400" y1="300" x2="616" y2="175"/>
+    <line x1="400" y1="300" x2="616" y2="425"/>
+    <line x1="400" y1="300" x2="400" y2="550"/>
+    <line x1="400" y1="300" x2="184" y2="425"/>
+    <line x1="400" y1="300" x2="184" y2="175"/>
+  </g>
+  <circle cx="400" cy="300" r="200" fill="none" stroke="#415a77" stroke-width="2"/>
+  <circle cx="400" cy="300" r="130" fill="none" stroke="#778da9" stroke-width="2"/>
+  <circle cx="400" cy="300" r="60" fill="#1b263b" stroke="#e0e1dd" stroke-width="2"/>
+</svg>
+\`\`\``,
+		inputTokens: 150,
+		outputTokens: 180,
+		inputCost: 0.00012,
+		outputCost: 0.00072,
+		completedAt: new Date()
+	});
+
+	// No artifacts inserted for gen4
+
+	console.log(`  ✓ Created generation ${gen4.id} with 1 step (no artifacts)\n`);
+
 	console.log('✅ Seeding complete!');
-	console.log(`   Created 3 generations for user ${DEV_USER_ID}`);
+	console.log(`   Created 4 generations for user ${DEV_USER_ID}`);
 
 	await client.end();
 }

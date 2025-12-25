@@ -8,8 +8,8 @@ export default defineConfig({
 	dbCredentials: {
 		url: process.env.DATABASE_URL!
 	},
-	schemaFilter: ['cards'],
-	migrations: { table: '__drizzle_migrations', schema: 'drizzle_cards' },
+	schemaFilter: ['pelican'],
+	migrations: { table: '__drizzle_migrations', schema: 'drizzle_pelican' },
 	verbose: true,
 	strict: true
 });

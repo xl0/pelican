@@ -264,6 +264,20 @@ UI components in `src/lib/components/` using Svelte 5 runes and shadcn-svelte.
 - [x] ASCII FG/BG color pickers (persisted)
 - [x] Flex-based 3-panel layout (controls | preview | raw)
 - [x] SVG scales to container width while preserving aspect ratio
+- [x] Artifact extraction from raw output (`src/lib/artifacts.ts`)
+- [x] Stream debug button to simulate streaming raw output
+- [x] `updateStepArtifacts()` and `simulateStream()` in AppState
+- [x] Shared types in `src/lib/types.ts` (formatValues, statusValues)
+- [x] Single-step generation in `src/lib/generate.ts`:
+  - Vercel AI SDK streamText with all providers
+  - Real-time artifact extraction during streaming
+  - DB persistence (generation, step, artifacts)
+  - S3 upload for input images and artifacts
+  - Navigate to generation URL on completion
+- [x] Improved CurrentGeneration types for streaming (partial steps/artifacts)
+- [x] Template reset functionality:
+  - Existing generation: reset to DB value
+  - New generation: reset to default and update persisted
 
 ### Previously Completed
 
@@ -280,14 +294,9 @@ UI components in `src/lib/components/` using Svelte 5 runes and shadcn-svelte.
 
 ### Backlog
 
-- [ ] Implement "Generate" button logic:
-  - Upload pendingInputFiles to S3
-  - Call commitToPersisted()
-  - Insert generation to DB
-  - Navigate to new generation URL
-- [ ] Implement generation execution (client-side AI calls)
+- [ ] Multi-step generation (refinement loop)
+- [ ] Include reference images in generation prompts
 - [ ] Remove unused legacy fields from AppState
-- [ ] Implement template reset functionality
 - [ ] Conditional UI based on model vision capabilities
 - [ ] Fork generation from specific history step
 - [ ] Export refinement sequence as animation

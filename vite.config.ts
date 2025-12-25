@@ -4,5 +4,18 @@ import { defineConfig } from 'vite';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-	plugins: [tailwindcss(), sveltekit(), devtoolsJson()],
+	plugins: [sveltekit(), tailwindcss(), devtoolsJson()],
+	// optimizeDeps: {
+	// 	exclude: [
+	// 		'svelte-codemirror-editor',
+	// 		'codemirror',
+	// 		'@codemirror/commands',
+	// 		'@codemirror/lang-jinja',
+	// 		'@codemirror/language',
+	// 		'@codemirror/lint',
+	// 		'@codemirror/state',
+	// 		'@codemirror/theme-one-dark',
+	// 		'@codemirror/view'
+	// 	]
+	// }
 });
