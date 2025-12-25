@@ -57,9 +57,9 @@ const SAMPLE_SVG_CAT = `<svg width="800" height="600" viewBox="0 0 800 600" xmln
 </svg>`;
 
 const SAMPLE_ASCII = `
-    /\\___/\\
-   (  o o  )
-   (  =^=  )
+.    /\\____/\\
+    (  o o  )
+    (  =^=  )
     (--m-m--)
    /|       |\\
   / |  CAT  | \\
@@ -67,6 +67,56 @@ const SAMPLE_ASCII = `
     |       |
     |_______|
 `;
+
+// Color themes for different artifacts
+const THEMES = [
+	{ bg: '#E8D4B8', cat: '#FF8C00', eyes: '#98FB98', label: 'Orange' },
+	{ bg: '#1a1a2e', cat: '#6B5B95', eyes: '#88D8B0', label: 'Purple' },
+	{ bg: '#ffe4e1', cat: '#FF6B6B', eyes: '#4ECDC4', label: 'Red' },
+	{ bg: '#e0f7fa', cat: '#00BCD4', eyes: '#FFE082', label: 'Cyan' },
+	{ bg: '#f3e5f5', cat: '#9C27B0', eyes: '#C5E1A5', label: 'Violet' }
+];
+
+// Generate a cat SVG with step/artifact label and color theme
+function makeCatSvg(step: number, artifact: number, themeIndex = 0): string {
+	const t = THEMES[themeIndex % THEMES.length];
+	return `<svg width="800" height="600" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="600" fill="${t.bg}"/>
+  <ellipse cx="400" cy="350" rx="150" ry="100" fill="${t.cat}"/>
+  <circle cx="400" cy="220" r="80" fill="${t.cat}"/>
+  <polygon points="340,160 320,80 360,140" fill="${t.cat}"/>
+  <polygon points="460,160 480,80 440,140" fill="${t.cat}"/>
+  <ellipse cx="360" cy="210" rx="20" ry="25" fill="${t.eyes}"/>
+  <ellipse cx="440" cy="210" rx="20" ry="25" fill="${t.eyes}"/>
+  <ellipse cx="365" cy="215" rx="8" ry="12" fill="#000"/>
+  <ellipse cx="445" cy="215" rx="8" ry="12" fill="#000"/>
+  <ellipse cx="400" cy="260" rx="12" ry="8" fill="#FF69B4"/>
+  <path d="M 380 280 Q 400 300 420 280" stroke="#000" stroke-width="2" fill="none"/>
+  <path d="M 530 380 Q 620 350 650 420 Q 680 500 600 480" stroke="${t.cat}" stroke-width="25" fill="none" stroke-linecap="round"/>
+  <rect x="20" y="20" width="180" height="50" rx="8" fill="rgba(0,0,0,0.7)"/>
+  <text x="30" y="55" font-family="sans-serif" font-size="24" font-weight="bold" fill="white">Step ${step} / Art ${artifact}</text>
+</svg>`;
+}
+
+// Generate a pelican SVG with step/artifact label
+function makePelicanSvg(step: number, artifact: number): string {
+	return `<svg width="800" height="600" viewBox="0 0 800 600" xmlns="http://www.w3.org/2000/svg">
+  <rect width="800" height="600" fill="#87CEEB"/>
+  <ellipse cx="400" cy="350" rx="120" ry="80" fill="#FFFFFF"/>
+  <ellipse cx="350" cy="300" rx="40" ry="35" fill="#FFFFFF"/>
+  <circle cx="340" cy="290" r="8" fill="#000000"/>
+  <path d="M 310 310 Q 280 330 250 320 Q 240 315 250 310 Q 280 300 310 310" fill="#FFA500"/>
+  <path d="M 310 310 Q 340 340 350 380 Q 345 340 310 310" fill="#FFA500" opacity="0.7"/>
+  <ellipse cx="480" cy="400" rx="25" ry="60" fill="#FFFFFF"/>
+  <ellipse cx="520" cy="400" rx="25" ry="60" fill="#FFFFFF"/>
+  <line x1="480" y1="460" x2="475" y2="520" stroke="#FFA500" stroke-width="8"/>
+  <line x1="520" y1="460" x2="525" y2="520" stroke="#FFA500" stroke-width="8"/>
+  <ellipse cx="470" cy="525" rx="20" ry="8" fill="#FFA500"/>
+  <ellipse cx="530" cy="525" rx="20" ry="8" fill="#FFA500"/>
+  <rect x="20" y="20" width="180" height="50" rx="8" fill="rgba(0,0,0,0.7)"/>
+  <text x="30" y="55" font-family="sans-serif" font-size="24" font-weight="bold" fill="white">Step ${step} / Art ${artifact}</text>
+</svg>`;
+}
 
 async function seed() {
 	console.log('🌱 Seeding database with sample generations...\n');
@@ -105,10 +155,11 @@ async function seed() {
 		})
 		.returning();
 
-	await db.insert(schema.artifacts).values({
-		stepId: step1_1.id,
-		body: SAMPLE_SVG_PELICAN
-	});
+	// Step 1: 2 artifacts (first attempts)
+	await db.insert(schema.artifacts).values([
+		{ stepId: step1_1.id, body: makePelicanSvg(1, 1) },
+		{ stepId: step1_1.id, body: makePelicanSvg(1, 2) }
+	]);
 
 	const [step1_2] = await db
 		.insert(schema.steps)
@@ -116,7 +167,7 @@ async function seed() {
 			generationId: gen1.id,
 			renderedPrompt: 'Refine the previous SVG to add more detail',
 			status: 'completed',
-			rawOutput: '<thinking>Adding more detail to the pelican...</thinking>\n\n```svg\n' + SAMPLE_SVG_PELICAN + '\n```',
+			rawOutput: '<thinking>Adding more detail to the pelican...</thinking>\n\n```svg\n' + makePelicanSvg(2, 1) + '\n```',
 			inputTokens: 950,
 			outputTokens: 850,
 			inputCost: 0.00076,
@@ -125,12 +176,14 @@ async function seed() {
 		})
 		.returning();
 
-	await db.insert(schema.artifacts).values({
-		stepId: step1_2.id,
-		body: SAMPLE_SVG_PELICAN
-	});
+	// Step 2: 3 artifacts (refinement attempts)
+	await db.insert(schema.artifacts).values([
+		{ stepId: step1_2.id, body: makePelicanSvg(2, 1) },
+		{ stepId: step1_2.id, body: makePelicanSvg(2, 2) },
+		{ stepId: step1_2.id, body: makePelicanSvg(2, 3) }
+	]);
 
-	console.log(`  ✓ Created generation ${gen1.id} with 2 steps\n`);
+	console.log(`  ✓ Created generation ${gen1.id} with 2 steps (5 artifacts)\n`);
 
 	// Generation 2: Cat (SVG, completed with 1 step)
 	console.log('Creating Generation 2: Orange Cat SVG...');
@@ -157,7 +210,7 @@ async function seed() {
 			generationId: gen2.id,
 			renderedPrompt: 'Generate an SVG of: A cute orange tabby cat with green eyes sitting happily',
 			status: 'completed',
-			rawOutput: "Here's a cute orange cat SVG:\n\n```svg\n" + SAMPLE_SVG_CAT + '\n```',
+			rawOutput: "Here's a cute orange cat SVG:\n\n```svg\n" + makeCatSvg(1, 1, 0) + '\n```',
 			inputTokens: 120,
 			outputTokens: 1200,
 			inputCost: 0.000018,
@@ -166,12 +219,14 @@ async function seed() {
 		})
 		.returning();
 
-	await db.insert(schema.artifacts).values({
-		stepId: step2_1.id,
-		body: SAMPLE_SVG_CAT
-	});
+	// Multiple artifacts with different color themes
+	await db.insert(schema.artifacts).values([
+		{ stepId: step2_1.id, body: makeCatSvg(1, 1, 0) }, // Orange
+		{ stepId: step2_1.id, body: makeCatSvg(1, 2, 1) }, // Purple
+		{ stepId: step2_1.id, body: makeCatSvg(1, 3, 2) }, // Red
+	]);
 
-	console.log(`  ✓ Created generation ${gen2.id} with 1 step\n`);
+	console.log(`  ✓ Created generation ${gen2.id} with 1 step (3 artifacts)\n`);
 
 	// Generation 3: ASCII Cat
 	console.log('Creating Generation 3: ASCII Cat...');
@@ -209,7 +264,7 @@ async function seed() {
 
 	await db.insert(schema.artifacts).values({
 		stepId: step3_1.id,
-		body: SAMPLE_ASCII.trim()
+		body: SAMPLE_ASCII
 	});
 
 	console.log(`  ✓ Created generation ${gen3.id} with 1 step\n`);

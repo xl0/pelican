@@ -4,31 +4,43 @@ A web application that converts prompts and reference images into SVG or ASCII a
 
 ## Project Structure
 
-```
-pelican/
-├── src/
-│   ├── lib/
-│   │   ├── server/
-│   │   │   ├── db/
-│   │   │   │   ├── schema.ts      # Drizzle schema (PostgreSQL)
-│   │   │   │   └── index.ts       # DB operations (db_* functions)
-│   │   │   └── s3/
-│   │   │       └── index.ts       # S3 upload functions
-│   │   ├── components/            # Svelte 5 components (shadcn-svelte)
-│   │   ├── data.remote.ts         # SvelteKit remote functions (query/command)
-│   │   ├── models.ts              # Provider/model definitions + pricing
-│   │   ├── prompts.ts             # Default prompt templates
-│   │   ├── appstate.svelte.ts     # Transient app state (two-tier pattern)
-│   │   ├── persisted.svelte.ts    # LocalStorage persistence
-│   │   ├── generation.svelte.ts   # Client-side generation logic
-│   │   └── svg.ts                 # SVG utilities
-│   └── routes/
-│       ├── +layout.svelte         # App layout with Toaster
-│       ├── +page.svelte           # Main generation page
-│       └── [id]/                   # Generation detail route
-├── drizzle/                       # Migration files (needs regeneration)
-├── infra/                         # Terraform (S3, CloudFront, IAM)
-└── static/
+```yaml
+src/lib/:
+  server/:
+    db/:
+      schema.ts: Drizzle schema (PostgreSQL)
+      index.ts: DB operations (db_* functions)
+    s3/:
+      index.ts: S3 upload functions
+  components/:
+    ArtifactPreview.svelte: Main SVG/ASCII preview with copy button
+    StepsHistory.svelte: Step/artifact thumbnails with selection
+    RawOutput.svelte: Raw model output panel (step.rawOutput)
+    CopyButton.svelte: Copy-to-clipboard with checkmark feedback
+    CostDisplay.svelte: Token usage and cost display
+    InputImagesPreview.svelte: Reference image upload/preview
+    ModelSettings.svelte: Provider, model, API key, endpoint
+    OutputSettings.svelte: Format, dimensions, max steps
+    PromptEditor.svelte: CodeMirror-based template editor
+    PromptInput.svelte: Main prompt textarea
+    PromptTermplates.svelte: Initial/refinement template sections
+    ui/: shadcn-svelte primitives (Button, Switch, etc.)
+  data.remote.ts: SvelteKit remote functions (query/command)
+  models.ts: Provider/model definitions + pricing
+  prompts.ts: Default prompt templates
+  appstate.svelte.ts: Transient app state (two-tier pattern)
+  persisted.svelte.ts: LocalStorage persistence
+  generation.svelte.ts: Client-side generation logic
+  svg.ts: SVG utilities
+
+src/routes/:
+  +layout.svelte: App layout with Toaster
+  +page.svelte: Main generation page
+  '[id]/': Generation detail route
+
+drizzle/: Migration files
+infra/: Terraform (S3, CloudFront, IAM)
+static/: Static assets
 ```
 
 ## State Management
@@ -202,33 +214,80 @@ Generation happens entirely in the browser using Vercel AI SDK.
 
 ## Current Status
 
-### Frontend (Being Refactored)
+### Frontend
 
 UI components in `src/lib/components/` using Svelte 5 runes and shadcn-svelte.
 
 - ✅ currentGeneration-based state management
-- [ ] Update UI components to bind to `app.currentGeneration.*`
+- ✅ All form components bind to `app.currentGeneration.*`
+- ✅ Preview displays selected artifact from current generation
+- ✅ Step history with multi-artifact support (stacked vertically)
+- ✅ Artifact selection updates main preview
+
+### AppState (`src/lib/appstate.svelte.ts`)
+
+- `currentGeneration` - The reactive generation object
+- `selectedStepIndex` - Which step is selected (undefined = last)
+- `selectedArtifactIndex` - Which artifact within step (undefined = last)
+- `isGenerating` - Generation in progress flag
+- `pendingInputFiles` - Files to upload on generate
+- `renderedPrompt` / `renderedRefinementPrompt` - Computed templates
+- `commitToPersisted()` - Saves currentGeneration to localStorage
+- `setFormat()` - Changes format with save/reset
 
 ### Backend (Stable)
 
-- ✅ Database schema defined in `src/lib/server/db/schema.ts`
+- ✅ Database schema with `maxSteps` and `sendFullHistory` (boolean)
 - ✅ DB operations in `src/lib/server/db/index.ts` (prefixed with `db_`)
-- ✅ Remote functions in `src/lib/data.remote.ts`
+- ✅ Remote functions in `src/lib/data.remote.ts` (typed with providerNames)
 - ✅ S3 integration for artifact storage
 - ✅ Debug logging throughout (`DEBUG="app:*"`)
-- ✅ Migrations regenerated and verified
 
 ## TODO
 
-- [x] Generate new Drizzle migrations for current schema
-- [x] Add seed script for development data (`bun run src/scripts/seed-db.ts`)
-- [x] Two-tier state management pattern → refactored to `currentGeneration`
-- [ ] Update UI to bind to `app.currentGeneration.*` instead of `p.*`
-  - [ ] OutputSettings.svelte
-  - [ ] ModelSettings.svelte
-  - [ ] PromptTemplates.svelte
-  - [ ] +layout.svelte (prompt textarea)
-- [ ] Remove legacy fields from AppState class
+### Completed This Session
+
+- [x] Add `maxSteps` and `sendFullHistory` to generations schema
+- [x] Update remote functions with proper types (providerNames picklist)
+- [x] Preview display from `currentArtifact`
+- [x] Step history showing all artifacts stacked vertically per step
+- [x] `selectedStepIndex` and `selectedArtifactIndex` in AppState
+- [x] Clicking artifact thumbnail selects step + artifact
+- [x] Seed script with labeled SVGs (step/artifact numbers, color themes)
+- [x] Fixed `@const` reactivity bug - use helper functions instead
+- [x] Public gallery fetches artifact.body from DB
+- [x] Extract ArtifactPreview component (SVG responsive via CSS)
+- [x] Extract StepsHistory component (step/artifact thumbnails)
+- [x] CopyButton component with checkmark feedback
+- [x] RawOutput component showing step's rawOutput field
+- [x] Show Raw toggle - hides controls, shows RawOutput beside preview
+- [x] ASCII FG/BG color pickers (persisted)
+- [x] Flex-based 3-panel layout (controls | preview | raw)
+- [x] SVG scales to container width while preserving aspect ratio
+
+### Previously Completed
+
+- [x] Fix Gallery Cards - Make all cards same height
+- [x] Extract PromptInput Component
+- [x] OutputSettings.svelte - Uses `app.currentGeneration`
+- [x] ModelSettings.svelte - Uses `app.currentGeneration`
+- [x] PromptTemplates.svelte - Uses `app.currentGeneration`
+- [x] PromptEditor.svelte - Accepts template as bindable string
+- [x] Replace AsciiArt.svelte - Re-exports from `svelte-asciiart`
+- [x] Generate new Drizzle migrations
+- [x] Seed script (`bun run src/scripts/seed-db.ts`)
+- [x] Public gallery page
+
+### Backlog
+
+- [ ] Implement "Generate" button logic:
+  - Upload pendingInputFiles to S3
+  - Call commitToPersisted()
+  - Insert generation to DB
+  - Navigate to new generation URL
+- [ ] Implement generation execution (client-side AI calls)
+- [ ] Remove unused legacy fields from AppState
+- [ ] Implement template reset functionality
 - [ ] Conditional UI based on model vision capabilities
 - [ ] Fork generation from specific history step
 - [ ] Export refinement sequence as animation

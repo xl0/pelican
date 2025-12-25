@@ -112,6 +112,16 @@
 	--color-sidebar-ring: var(--sidebar-ring);
 }
 
+.ascii-grid {
+	stroke: #87cefa;
+	stroke-width: 0.03;
+	opacity: 0.5;
+}
+.ascii-frame {
+	stroke: #ffb366;
+	stroke-width: 0.05;
+}
+
 @layer base {
 	* {
 		@apply border-border outline-ring/50;

@@ -12,20 +12,19 @@
 
 	import dbg from 'debug';
 	import nunjucks from 'nunjucks';
-	import type { PersistedState } from 'runed';
 	const debug = dbg('app:components:PromptEditor');
 
 	// Configure nunjucks to be minimal and throw on undefined variables as requested
 	const env = new nunjucks.Environment(null, { autoescape: false, throwOnUndefined: true });
 
 	let {
-		template,
+		template = $bindable(),
 		rendered = $bindable(),
 		title,
 		context,
 		class: className
 	}: {
-		template: PersistedState<string>;
+		template: string;
 		rendered: string;
 		title: string;
 		context: Record<string, string | number>;
@@ -39,7 +38,7 @@
 
 	$effect(() => {
 		try {
-			rendered = env.renderString(template.current, context);
+			rendered = env.renderString(template, context);
 		} catch (e: any) {
 			rendered = `Error rendering preview: ${e.message.replace('(unknown path) ', '').trim()}`;
 		}
@@ -102,7 +101,7 @@
 		const missing: string[] = [];
 		for (const v of requiredVariables) {
 			const pattern = new RegExp(`\\{\\{\\s*${v}\\b[\\s\\S]*?\\}\\}`);
-			if (!pattern.test(template.current)) {
+			if (!pattern.test(template)) {
 				missing.push(v);
 			}
 		}
@@ -142,7 +141,7 @@
 	{:else}
 		<div class={'relative overflow-hidden rounded-md border border-border shadow-sm focus-within:ring-1 focus-within:ring-ring'}>
 			<CodeMirror
-				bind:value={template.current}
+				bind:value={template}
 				lang={markdown()}
 				theme={oneDark}
 				lineNumbers={false}

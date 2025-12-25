@@ -1,16 +1,16 @@
 import { command, query } from '$app/server';
-import * as v from 'valibot';
+import { providerNames } from '$lib/models';
 import * as db from '$lib/server/db';
-import * as s3 from '$lib/server/s3';
 import {
-	type NewGeneration,
-	type UpdateGeneration,
 	type NewStep,
+	type UpdateGeneration,
 	type UpdateStep,
 	formatValues,
 	statusValues
 } from '$lib/server/db/schema';
+import * as s3 from '$lib/server/s3';
 import dbg from 'debug';
+import * as v from 'valibot';
 
 const debug = dbg('app:remote');
 
@@ -26,15 +26,17 @@ export const insertGeneration = command(
 		format: v.picklist(formatValues),
 		width: v.number(),
 		height: v.number(),
-		provider: v.string(),
+		provider: v.picklist(providerNames),
 		model: v.string(),
 		endpoint: v.nullable(v.string()),
 		initialTemplate: v.string(),
-		refinementTemplate: v.string()
+		refinementTemplate: v.string(),
+		maxSteps: v.number(),
+		sendFullHistory: v.boolean()
 	}),
 	async (data) => {
 		try {
-			return await db.db_insertGeneration(data as NewGeneration);
+			return await db.db_insertGeneration(data);
 		} finally {
 			debug('insertGeneration');
 		}
@@ -49,11 +51,13 @@ export const updateGeneration = command(
 		format: v.optional(v.picklist(formatValues)),
 		width: v.optional(v.number()),
 		height: v.optional(v.number()),
-		provider: v.optional(v.string()),
+		provider: v.optional(v.picklist(providerNames)),
 		model: v.optional(v.string()),
 		endpoint: v.optional(v.nullable(v.string())),
 		initialTemplate: v.optional(v.string()),
-		refinementTemplate: v.optional(v.string())
+		refinementTemplate: v.optional(v.string()),
+		maxSteps: v.optional(v.number()),
+		sendFullHistory: v.optional(v.boolean())
 	}),
 	async (data) => {
 		try {

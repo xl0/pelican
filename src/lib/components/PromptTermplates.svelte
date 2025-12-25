@@ -1,22 +1,29 @@
 <script lang="ts">
+	import { app } from '$lib/appstate.svelte';
 	import PromptEditor from '$lib/components/PromptEditor.svelte';
-	import * as p from '$lib/persisted.svelte'
-	import {app} from '$lib/appstate.svelte'
+
+	const gen = $derived(app.currentGeneration);
 </script>
 
-<div class="space-y-3">
-	<PromptEditor template={p.initialTemplate} bind:rendered={app.renderedPrompt}
-	title="Initial template (SVG)"
-	context={{
-		prompt: p.prompt.current,
-		width: p.svgWidth.current,
-		height: p.svgHeight.current
-	}}/>
-	<PromptEditor template={p.refinementTemplate} bind:rendered={app.renderedRefinementPrompt}
-	title="Refinement template (SVG)"
-	context={{
-		prompt: p.prompt.current,
-		width: p.svgWidth.current,
-		height: p.svgHeight.current
-	}}/>
-</div>
+{#if gen}
+	<div class="space-y-3">
+		<PromptEditor
+			bind:template={gen.initialTemplate}
+			bind:rendered={app.renderedPrompt}
+			title="Initial template ({gen.format.toUpperCase()})"
+			context={{
+				prompt: gen.prompt,
+				width: gen.width,
+				height: gen.height
+			}} />
+		<PromptEditor
+			bind:template={gen.refinementTemplate}
+			bind:rendered={app.renderedRefinementPrompt}
+			title="Refinement template ({gen.format.toUpperCase()})"
+			context={{
+				prompt: gen.prompt,
+				width: gen.width,
+				height: gen.height
+			}} />
+	</div>
+{/if}

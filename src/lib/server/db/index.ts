@@ -13,7 +13,7 @@ import {
 	type UpdateStep,
 	type NewArtifact
 } from './schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, asc } from 'drizzle-orm';
 import dbg from 'debug';
 
 const debug = dbg('app:db');
@@ -66,7 +66,7 @@ export async function db_getPublicGenerations(limit = 50) {
 					columns: { id: true },
 					orderBy: desc(steps.id),
 					limit: 1,
-					with: { artifacts: { columns: { id: true }, limit: 1 } }
+					with: { artifacts: { columns: { id: true, body: true }, orderBy: desc(artifacts.id), limit: 1 } }
 				}
 			}
 		});
@@ -79,7 +79,13 @@ export async function db_getGeneration(id: string) {
 	try {
 		return await db.query.generations.findFirst({
 			where: eq(generations.id, id),
-			with: { steps: { with: { artifacts: true } }, inputImages: true }
+			with: {
+				steps: {
+					orderBy: asc(steps.id),
+					with: { artifacts: { orderBy: asc(artifacts.id) } }
+				},
+				inputImages: true
+			}
 		});
 	} finally {
 		debug('getGeneration id=%s', id);

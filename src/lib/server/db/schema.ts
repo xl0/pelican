@@ -1,6 +1,6 @@
 import { providerNames } from '$lib/models';
 import { relations } from 'drizzle-orm';
-import { integer, pgSchema, real, serial, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, integer, pgSchema, real, serial, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 
 export const pelican = pgSchema('pelican');
 
@@ -29,6 +29,9 @@ export const generations = pelican.table('generations', {
 	// Prompt templates
 	initialTemplate: text('initial_template').notNull(),
 	refinementTemplate: text('refinement_template').notNull(),
+	// Generation options
+	maxSteps: integer('max_steps').notNull().default(5),
+	sendFullHistory: boolean('send_full_history').notNull().default(true),
 	createdAt: timestamp('created_at').notNull().defaultNow(),
 	updatedAt: timestamp('updated_at')
 		.notNull()

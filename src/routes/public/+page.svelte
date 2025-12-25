@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { getPublicGenerations } from '$lib/data.remote';
-	import { PUBLIC_CLOUDFRONT_URL } from '$env/static/public';
 	import { formatDistanceToNow } from 'date-fns';
 	import * as Card from '$lib/components/ui/card';
 	import { Badge } from '$lib/components/ui/badge';
@@ -8,17 +7,13 @@
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Button } from '$lib/components/ui/button';
 	import { ArrowLeft } from '@lucide/svelte';
+	import { AsciiArt } from 'svelte-asciiart';
 
 	const generations = getPublicGenerations({ limit: 50 });
 
-	// Get preview URL for a generation's latest artifact
-	function getPreviewUrl(gen: Awaited<typeof generations>[number]): string | null {
-		const lastStep = gen.steps?.[0];
-		const artifact = lastStep?.artifacts?.[0];
-		if (!artifact) return null;
-
-		const ext = gen.format === 'svg' ? 'svg' : 'txt';
-		return `https://${PUBLIC_CLOUDFRONT_URL}/${gen.id}/${lastStep.id}_${artifact.id}.${ext}`;
+	// Get artifact body for a generation's latest artifact
+	function getArtifactBody(gen: Awaited<typeof generations>[number]): string | null {
+		return gen.steps?.[0]?.artifacts?.[0]?.body;
 	}
 </script>
 
@@ -79,22 +74,20 @@
 			{:else}
 				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
 					{#each gens as gen (gen.id)}
-						{@const previewUrl = getPreviewUrl(gen)}
-						<a href="/{gen.id}" class="group">
+						{@const body = getArtifactBody(gen)}
+						<a href="/{gen.id}" class="group h-full">
 							<Card.Root
-								class="overflow-hidden transition-all duration-200 hover:border-orange-500/50 hover:shadow-lg hover:shadow-orange-500/10 group-hover:-translate-y-1">
-								<!-- Preview image -->
+								class="h-full flex flex-col overflow-hidden transition-all duration-200 hover:border-orange-500/50 hover:shadow-lg hover:shadow-orange-500/10 group-hover:-translate-y-1">
+								<!-- Preview -->
 								<div class="p-4 bg-muted/50">
 									<AspectRatio ratio={1} class="rounded overflow-hidden bg-muted">
-										{#if previewUrl && gen.format === 'svg'}
-											<img
-												src={previewUrl}
-												alt={gen.title}
-												class="w-full h-full object-contain transition-transform duration-200 group-hover:scale-105"
-												loading="lazy" />
-										{:else if gen.format === 'ascii'}
-											<div class="w-full h-full flex items-center justify-center bg-slate-950">
-												<span class="text-emerald-400 font-mono text-xs">ASCII</span>
+										{#if body && gen.format === 'svg'}
+											<div class="w-full h-full [&>svg]:w-full [&>svg]:h-full transition-transform duration-200 group-hover:scale-105">
+												{@html body}
+											</div>
+										{:else if body && gen.format === 'ascii'}
+											<div class="w-full h-full bg-slate-950 text-emerald-400">
+												<AsciiArt text={body} />
 											</div>
 										{:else}
 											<div class="w-full h-full flex items-center justify-center">
@@ -104,7 +97,7 @@
 									</AspectRatio>
 								</div>
 
-								<Card.Header class="pb-2">
+								<Card.Header class="pb-2 flex-1">
 									<div class="flex items-start justify-between gap-2">
 										<Card.Title class="text-base truncate group-hover:text-orange-500 transition-colors">
 											{gen.title}
@@ -113,7 +106,7 @@
 											{gen.format.toUpperCase()}
 										</Badge>
 									</div>
-									<Card.Description class="line-clamp-2 text-xs">
+									<Card.Description class="line-clamp-2 text-xs min-h-[2.5em]">
 										{gen.prompt}
 									</Card.Description>
 								</Card.Header>
