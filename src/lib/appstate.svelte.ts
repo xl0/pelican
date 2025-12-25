@@ -12,10 +12,12 @@ type MakeOptional<T, K extends keyof T> = Omit<T, K> & Partial<Pick<T, K>>;
 
 // Type for generation without timestamps (used for new/editing generations)
 type DBGeneration = NonNullable<Awaited<ReturnType<typeof getGeneration>>>;
-export type CurrentGeneration = Omit<MakeOptional<DBGeneration, 'id' | 'createdAt' | 'updatedAt'>, 'steps'> & {
+export type CurrentGeneration = Omit<MakeOptional<DBGeneration, 'id' | 'createdAt' | 'updatedAt'>, 'steps' | 'generationImages'> & {
 	steps: (Omit<PartialExcept<DBGeneration['steps'][number], 'status'>, 'artifacts'> & {
 		artifacts: Partial<DBGeneration['steps'][number]['artifacts'][number]>[];
 	})[];
+	// Flattened images array for convenience (from generationImages junction table)
+	images: { id: string; extension: string }[];
 };
 
 /**
@@ -43,7 +45,7 @@ export function generationFromPersisted(): CurrentGeneration {
 		sendFullHistory: p.sendFullHistory.current,
 		// Relations (empty for new generation)
 		steps: [],
-		inputImages: []
+		images: []
 	};
 }
 

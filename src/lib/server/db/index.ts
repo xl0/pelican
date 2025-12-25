@@ -6,7 +6,8 @@ import {
 	generations,
 	steps,
 	artifacts,
-	inputImages,
+	images,
+	generationImages,
 	type NewGeneration,
 	type UpdateGeneration,
 	type NewStep,
@@ -84,7 +85,7 @@ export async function db_getGeneration(id: string) {
 					orderBy: asc(steps.id),
 					with: { artifacts: { orderBy: asc(artifacts.id) } }
 				},
-				inputImages: true
+				generationImages: { with: { image: true } }
 			}
 		});
 	} finally {
@@ -198,41 +199,60 @@ export async function db_deleteArtifact(id: number) {
 }
 
 // ============================================================================
-// Input Images
+// Images
 // ============================================================================
 
-export async function db_getInputImages(generationId: string) {
+export async function db_getImagesForGeneration(generationId: string) {
 	try {
-		return await db.select().from(inputImages).where(eq(inputImages.generationId, generationId));
+		const links = await db.query.generationImages.findMany({
+			where: eq(generationImages.generationId, generationId),
+			with: { image: true }
+		});
+		return links.map((l) => l.image);
 	} finally {
-		debug('getInputImages genId=%s', generationId);
+		debug('getImagesForGeneration genId=%s', generationId);
 	}
 }
 
-export async function db_getInputImage(id: string) {
+export async function db_getImage(id: string) {
 	try {
-		const res = await db.select().from(inputImages).where(eq(inputImages.id, id));
-		return res[0];
+		return await db.query.images.findFirst({ where: eq(images.id, id) });
 	} finally {
-		debug('getInputImage id=%s', id);
+		debug('getImage id=%s', id);
 	}
 }
 
-export async function db_insertInputImage(generationId: string) {
+export async function db_insertImage(extension: string) {
 	let result: { id: string } | undefined;
 	try {
-		const res = await db.insert(inputImages).values({ generationId }).returning();
+		const res = await db.insert(images).values({ extension }).returning();
 		result = res[0];
 		return result;
 	} finally {
-		debug('insertInputImage genId=%s id=%s', generationId, result?.id);
+		debug('insertImage id=%s ext=%s', result?.id, extension);
 	}
 }
 
-export async function db_deleteInputImage(id: string) {
+export async function db_linkImageToGeneration(generationId: string, imageId: string) {
 	try {
-		await db.delete(inputImages).where(eq(inputImages.id, id));
+		await db.insert(generationImages).values({ generationId, imageId }).onConflictDoNothing();
 	} finally {
-		debug('deleteInputImage id=%s', id);
+		debug('linkImageToGeneration genId=%s imgId=%s', generationId, imageId);
+	}
+}
+
+export async function db_unlinkImageFromGeneration(generationId: string, imageId: string) {
+	try {
+		await db.delete(generationImages).where(eq(generationImages.generationId, generationId));
+	} finally {
+		debug('unlinkImageFromGeneration genId=%s imgId=%s', generationId, imageId);
+	}
+}
+
+export async function db_deleteImage(id: string) {
+	try {
+		await db.delete(images).where(eq(images.id, id));
+	} finally {
+		debug('deleteImage id=%s', id);
 	}
 }

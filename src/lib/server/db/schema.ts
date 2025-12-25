@@ -1,6 +1,6 @@
 import { providerNames } from '$lib/models';
 import { relations } from 'drizzle-orm';
-import { boolean, integer, pgSchema, real, serial, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, integer, pgSchema, primaryKey, real, serial, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { formatValues, statusValues } from '$lib/types';
 
 // Re-export for convenience
@@ -72,15 +72,28 @@ export const artifacts = pelican.table('artifacts', {
 	body: text('body').default('')
 });
 
-export const inputImages = pelican.table('images', {
+// Images are standalone entities (S3 path: input/{imageId}.{ext})
+export const images = pelican.table('images', {
 	id: uuid('id').primaryKey().defaultRandom(),
-	generationId: uuid('gen_id')
-		.notNull()
-		.references(() => generations.id, { onDelete: 'cascade' })
+	extension: text('extension').notNull().default('png')
 });
 
+// Junction table: many-to-many between generations and images
+export const generationImages = pelican.table(
+	'generation_images',
+	{
+		generationId: uuid('gen_id')
+			.notNull()
+			.references(() => generations.id, { onDelete: 'cascade' }),
+		imageId: uuid('image_id')
+			.notNull()
+			.references(() => images.id, { onDelete: 'cascade' })
+	},
+	(t) => [primaryKey({ columns: [t.generationId, t.imageId] })]
+);
+
 export const genRelations = relations(generations, ({ many }) => ({
-	inputImages: many(inputImages),
+	generationImages: many(generationImages),
 	steps: many(steps)
 }));
 
@@ -99,10 +112,18 @@ export const artifactRelations = relations(artifacts, ({ one }) => ({
 	})
 }));
 
-export const inputImageRelations = relations(inputImages, ({ one }) => ({
+export const imageRelations = relations(images, ({ many }) => ({
+	generationImages: many(generationImages)
+}));
+
+export const generationImageRelations = relations(generationImages, ({ one }) => ({
 	generation: one(generations, {
-		fields: [inputImages.generationId],
+		fields: [generationImages.generationId],
 		references: [generations.id]
+	}),
+	image: one(images, {
+		fields: [generationImages.imageId],
+		references: [images.id]
 	})
 }));
 
@@ -119,3 +140,7 @@ export type UpdateStep = { id: number } & Partial<Omit<NewStep, 'id'>>;
 // Artifact types
 export type Artifact = typeof artifacts.$inferSelect;
 export type NewArtifact = typeof artifacts.$inferInsert;
+
+// Image types
+export type Image = typeof images.$inferSelect;
+export type NewImage = typeof images.$inferInsert;

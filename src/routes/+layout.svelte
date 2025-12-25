@@ -52,13 +52,20 @@
 			// Loading an existing generation from DB
 			generation.then((g) => {
 				debug('generation loaded from DB', { g });
-				app.currentGeneration = g;
-				// Store original templates for reset functionality
 				if (g) {
+					// Flatten generationImages junction table to simple images array
+					const { generationImages, ...rest } = g;
+					app.currentGeneration = {
+						...rest,
+						images: generationImages.map((gi) => gi.image)
+					};
+					// Store original templates for reset functionality
 					app.originalTemplates = {
 						initial: g.initialTemplate,
 						refinement: g.refinementTemplate
 					};
+				} else {
+					app.currentGeneration = undefined;
 				}
 				app.selectedStepIndex = undefined;
 				app.selectedArtifactIndex = undefined;

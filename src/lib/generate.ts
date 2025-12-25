@@ -14,9 +14,10 @@ import dbg from 'debug';
 import { toast } from 'svelte-sonner';
 import { app, type CurrentGeneration } from './appstate.svelte';
 import { extractArtifacts } from './artifacts';
-import { insertGeneration, insertStep, updateStep, uploadArtifact, uploadInputImage } from './data.remote';
+import { insertGeneration, insertStep, updateStep, uploadArtifact, uploadInputImage, linkImageToGeneration } from './data.remote';
 import { providers, type Model, type providersKey } from './models';
 import * as p from './persisted.svelte';
+import { getInputImageUrl } from './utils';
 
 const debug = dbg('app:generate');
 
@@ -118,15 +119,39 @@ export async function generate(userId: string): Promise<GenerateResult> {
 		generationId = dbGen.id;
 		debug('Created generation', { generationId });
 
-		// 3. Upload pending input images
+		// 3. Collect image URLs for AI (can be base64 data URLs or regular URLs)
+		const imageUrls: string[] = [];
+
+		// 3a. Process pending input files (new uploads)
+		const pendingImages: { data: Uint8Array<ArrayBuffer>; ext: string; base64: string }[] = [];
 		for (const file of app.pendingInputFiles) {
 			const ext = file.name.split('.').pop() || 'png';
-			await uploadInputImage({ generationId, data: file, extension: ext });
-			debug('Uploaded input image', { name: file.name });
+			const buffer = await file.arrayBuffer();
+			const data = new Uint8Array(buffer) as Uint8Array<ArrayBuffer>;
+			const base64 = `data:image/${ext};base64,${btoa(String.fromCharCode(...data))}`;
+			pendingImages.push({ data, ext, base64 });
+			imageUrls.push(base64);
+		}
+
+		// 4. Upload pending input images to S3
+		for (const img of pendingImages) {
+			await uploadInputImage({ generationId, data: img.data, extension: img.ext });
+			debug('Uploaded input image');
 		}
 		app.pendingInputFiles = [];
 
-		// 4. Insert step record (use app.renderedPrompt from templates)
+		// 4a. Add existing images from generation and link to new generation if needed
+		if (gen.images?.length) {
+			for (const img of gen.images) {
+				const url = getInputImageUrl(img.id, img.extension);
+				imageUrls.push(url);
+				// Link existing image to new generation (if this is a new gen from existing)
+				await linkImageToGeneration({ generationId, imageId: img.id });
+				debug('Added existing image URL', { id: img.id });
+			}
+		}
+
+		// 5. Insert step record (use app.renderedPrompt from templates)
 		const renderedPrompt = app.renderedPrompt;
 		const dbStep = await insertStep({
 			generationId,
@@ -135,7 +160,7 @@ export async function generate(userId: string): Promise<GenerateResult> {
 		});
 		debug('Created step', { stepId: dbStep.id });
 
-		// 5. Initialize client-side step for live preview
+		// 6. Initialize client-side step for live preview
 		const clientStep: CurrentGeneration['steps'][number] = {
 			id: dbStep.id,
 			generationId,
@@ -148,13 +173,13 @@ export async function generate(userId: string): Promise<GenerateResult> {
 		app.selectedStepIndex = undefined;
 		app.selectedArtifactIndex = undefined;
 
-		// 6. Build messages (use rendered prompt directly, no system prompt for now)
-		const userContent: Array<{ type: 'text'; text: string } | { type: 'image'; image: string }> = [{ type: 'text', text: renderedPrompt }];
+		// 7. Build messages with text and images
+		const userContent: Array<{ type: 'text'; text: string } | { type: 'image'; image: string }> = [
+			{ type: 'text', text: renderedPrompt },
+			...imageUrls.map((url) => ({ type: 'image' as const, image: url }))
+		];
 
-		// TODO: Add reference images to userContent if available
-		// For now, we skip image inputs
-
-		// 7. Stream the generation
+		// 8. Stream the generation
 		const model = getModelInstance(gen.provider, gen.model, apiKey, gen.endpoint?.trim() || undefined);
 
 		let fullText = '';

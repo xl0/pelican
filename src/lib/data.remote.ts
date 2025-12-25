@@ -1,13 +1,7 @@
 import { command, query } from '$app/server';
 import { providerNames } from '$lib/models';
 import * as db from '$lib/server/db';
-import {
-	type NewStep,
-	type UpdateGeneration,
-	type UpdateStep,
-	formatValues,
-	statusValues
-} from '$lib/server/db/schema';
+import { type NewStep, type UpdateGeneration, type UpdateStep, formatValues, statusValues } from '$lib/server/db/schema';
 import * as s3 from '$lib/server/s3';
 import dbg from 'debug';
 import * as v from 'valibot';
@@ -170,22 +164,22 @@ export const getArtifacts = query(v.object({ stepId: v.number() }), async ({ ste
 });
 
 // ============================================================================
-// Input Images
+// Images
 // ============================================================================
 
-export const getInputImage = query(v.object({ id: v.string() }), async ({ id }) => {
+export const getImage = query(v.object({ id: v.string() }), async ({ id }) => {
 	try {
-		return await db.db_getInputImage(id);
+		return await db.db_getImage(id);
 	} finally {
-		debug('getInputImage id=%s', id);
+		debug('getImage id=%s', id);
 	}
 });
 
-export const getInputImages = query(v.object({ generationId: v.string() }), async ({ generationId }) => {
+export const getImagesForGeneration = query(v.object({ generationId: v.string() }), async ({ generationId }) => {
 	try {
-		return await db.db_getInputImages(generationId);
+		return await db.db_getImagesForGeneration(generationId);
 	} finally {
-		debug('getInputImages genId=%s', generationId);
+		debug('getImagesForGeneration genId=%s', generationId);
 	}
 });
 
@@ -196,20 +190,24 @@ export const getInputImages = query(v.object({ generationId: v.string() }), asyn
 export const uploadInputImage = command(
 	v.object({
 		generationId: v.string(),
-		data: v.file(),
+		data: v.instance(Uint8Array),
 		extension: v.string()
 	}),
 	async ({ generationId, data, extension }) => {
 		let key: string | undefined;
-		const image = await db.db_insertInputImage(generationId);
+		// Create standalone image record
+		const image = await db.db_insertImage(extension);
 		try {
-			key = await s3.uploadInputImage(generationId, image.id, new Uint8Array(await data.arrayBuffer()), extension);
+			// Upload to S3 (path: input/{imageId}.{ext})
+			key = await s3.uploadInputImage(image.id, data, extension);
+			// Link image to generation
+			await db.db_linkImageToGeneration(generationId, image.id);
 			return { id: image.id, key };
 		} catch (e) {
-			await db.db_deleteInputImage(image.id);
+			await db.db_deleteImage(image.id);
 			throw e;
 		} finally {
-			debug('uploadInputImage genId=%s key=%s', generationId, key);
+			debug('uploadInputImage genId=%s imgId=%s key=%s', generationId, image.id, key);
 		}
 	}
 );
@@ -233,5 +231,16 @@ export const uploadArtifact = command(
 		} finally {
 			debug('uploadArtifact genId=%s stepId=%d key=%s', generationId, stepId, key);
 		}
+	}
+);
+
+export const linkImageToGeneration = command(
+	v.object({
+		generationId: v.string(),
+		imageId: v.string()
+	}),
+	async ({ generationId, imageId }) => {
+		await db.db_linkImageToGeneration(generationId, imageId);
+		debug('linkImageToGeneration genId=%s imgId=%s', generationId, imageId);
 	}
 );

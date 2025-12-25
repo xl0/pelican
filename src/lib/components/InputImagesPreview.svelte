@@ -2,17 +2,15 @@
 	import { app } from '$lib/appstate.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as ImageZoom from '$lib/components/ui/image-zoom';
+	import { getInputImageUrl } from '$lib/utils';
 	import { X, ImagePlus } from '@lucide/svelte';
-	import { PUBLIC_CLOUDFRONT_URL } from '$env/static/public';
 
-	// Input image from DB has id + generationId, pending files are File objects
-	type DBImage = { id: string; generationId: string };
+	// Image from DB has id + extension (no longer tied to a generation)
+	type DBImage = { id: string; extension: string };
 
 	// Get URL for a DB image
 	function getImageUrl(img: DBImage): string {
-		// Key structure: {generationId}/input/{imageId}.{ext}
-		// We don't store extension in DB, assume common formats work
-		return `https://${PUBLIC_CLOUDFRONT_URL}/${img.generationId}/input/${img.id}`;
+		return getInputImageUrl(img.id, img.extension);
 	}
 
 	// Create object URL for pending file
@@ -23,7 +21,7 @@
 	// Remove a DB image from the generation
 	function removeDbImage(id: string) {
 		if (!app.currentGeneration) return;
-		app.currentGeneration.inputImages = app.currentGeneration.inputImages.filter((img) => img.id !== id);
+		app.currentGeneration.images = app.currentGeneration.images.filter((img) => img.id !== id);
 	}
 
 	// Remove a pending file
@@ -42,7 +40,7 @@
 	}
 
 	// Combined count of all images
-	const totalImages = $derived((app.currentGeneration?.inputImages?.length ?? 0) + app.pendingInputFiles.length);
+	const totalImages = $derived((app.currentGeneration?.images?.length ?? 0) + app.pendingInputFiles.length);
 </script>
 
 <div class="space-y-2">
@@ -60,8 +58,8 @@
 	{#if totalImages > 0}
 		<ImageZoom.Root>
 			<div class="flex flex-wrap gap-2">
-				{#if app.currentGeneration?.inputImages}
-					{#each app.currentGeneration.inputImages as img (img.id)}
+				{#if app.currentGeneration?.images}
+					{#each app.currentGeneration.images as img (img.id)}
 						<div class="relative group">
 							<ImageZoom.Trigger src={getImageUrl(img)} alt="Reference image" class="w-16 h-16 object-cover rounded border border-border" />
 							<Button
