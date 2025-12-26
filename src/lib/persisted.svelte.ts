@@ -38,7 +38,10 @@ export const asciiInitialTemplate = persisted('asciiInitialTemplate', DEFAULT_AS
 export const asciiRefinementTemplate = persisted('asciiRefinementTemplate', DEFAULT_ASCII_REFINEMENT_TEMPLATE);
 export const asciiFgColor = persisted('asciiFgColor', '#22c55e');
 export const asciiBgColor = persisted('asciiBgColor', '#020617');
+export const showAllSteps = persisted('showAllSteps', false);
 export const prompt = persisted('prompt', 'Pelican riding a bicycle');
+export const promptTemplatesOpen = persisted('promptTemplatesOpen', false);
+export const showRawOutput = persisted('showRawOutput', false);
 
 export const apiKeys = persisted<Record<string, string>>('apiKeys', {});
 

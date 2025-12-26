@@ -1,51 +1,94 @@
-  // Helper to convert SVG string to PNG base64 - extracts dimensions from SVG or uses provided values
-  function svgToPngBase64(svgString: string, width?: number, height?: number): Promise<string> {
-    return new Promise((resolve, reject) => {
-      // Parse SVG to extract dimensions if not provided
-      let w = width, h = height;
-      if (!w || !h) {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(svgString, 'image/svg+xml');
-        const svgEl = doc.querySelector('svg');
-        if (svgEl) {
-          const vb = svgEl.getAttribute('viewBox');
-          if (vb) {
-            const [, , vbW, vbH] = vb.split(/\s+/).map(Number);
-            w = w || vbW;
-            h = h || vbH;
-          }
-          w = w || parseFloat(svgEl.getAttribute('width') || '800');
-          h = h || parseFloat(svgEl.getAttribute('height') || '600');
-        }
-      }
-      w = w || 800;
-      h = h || 600;
+/**
+ * Convert SVG string to PNG Blob.
+ */
+export function svgToPngBlob(svgString: string, width: number, height: number): Promise<Blob> {
+	return new Promise((resolve, reject) => {
+		const img = new Image();
+		const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
+		const url = URL.createObjectURL(svgBlob);
 
-      const img = new Image();
-      const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(svgBlob);
+		img.onload = () => {
+			const canvas = document.createElement('canvas');
+			canvas.width = width;
+			canvas.height = height;
+			const ctx = canvas.getContext('2d');
+			if (!ctx) {
+				reject(new Error('Could not get canvas context'));
+				return;
+			}
+			ctx.fillStyle = 'white';
+			ctx.fillRect(0, 0, width, height);
+			ctx.drawImage(img, 0, 0, width, height);
+			URL.revokeObjectURL(url);
+			canvas.toBlob(
+				(blob) => {
+					if (blob) resolve(blob);
+					else reject(new Error('Failed to create PNG blob'));
+				},
+				'image/png',
+				1.0
+			);
+		};
 
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        if (!ctx) {
-          reject(new Error('Could not get canvas context'));
-          return;
-        }
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        URL.revokeObjectURL(url);
-        resolve(canvas.toDataURL('image/png'));
-      };
+		img.onerror = () => {
+			URL.revokeObjectURL(url);
+			reject(new Error('Failed to load SVG image'));
+		};
 
-      img.onerror = () => {
-        URL.revokeObjectURL(url);
-        reject(new Error('Failed to load SVG image'));
-      };
+		img.src = url;
+	});
+}
 
-      img.src = url;
-    });
-  }
+
+/**
+ * Render ASCII art text to an SVG string.
+ * Uses monospace font with fixed cell dimensions for precise alignment.
+ */
+export function asciiToSvg(
+	text: string,
+	opts: { rows?: number; cols?: number; fg?: string; bg?: string; cellAspect?: number } = {}
+): string {
+	const { fg = '#ffffff', bg = '#000000', cellAspect = 0.6 } = opts;
+	const lines = text.split('\n');
+	const cols = opts.cols ?? Math.max(...lines.map((l) => l.length), 1);
+	const rows = opts.rows ?? lines.length;
+
+	// Cell dimensions (height = 1 unit, width = cellAspect)
+	const cellW = cellAspect;
+	const cellH = 1;
+	const viewW = cols * cellW;
+	const viewH = rows * cellH;
+
+	// Build text elements
+	const texts = lines
+		.map((line, y) => {
+			const escapedLine = line.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/ /g, '&#160;'); // Non-breaking space for alignment
+			return `<text x="0" y="${y * cellH + cellH * 0.85}" font-size="${cellH * 0.9}">${escapedLine}</text>`;
+		})
+		.join('\n    ');
+
+	return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${viewW} ${viewH}">
+  <style>text { font-family: 'Courier New', monospace; fill: ${fg}; white-space: pre; }</style>
+  <rect width="100%" height="100%" fill="${bg}"/>
+  ${texts}
+</svg>`;
+}
+
+/**
+ * Convert ASCII art text to PNG Blob.
+ */
+export function asciiToPngBlob(
+	text: string,
+	opts: { rows?: number; cols?: number; fg?: string; bg?: string; cellAspect?: number; width?: number; height?: number } = {}
+): Promise<Blob> {
+	const { width = 800, height, ...svgOpts } = opts;
+	const svg = asciiToSvg(text, svgOpts);
+	// Derive height from width based on aspect ratio if not provided
+	const lines = text.split('\n');
+	const cols = svgOpts.cols ?? Math.max(...lines.map((l) => l.length), 1);
+	const rows = svgOpts.rows ?? lines.length;
+	const cellAspect = svgOpts.cellAspect ?? 0.6;
+	const aspect = rows / (cols * cellAspect);
+	const h = height ?? Math.round(width * aspect);
+	return svgToPngBlob(svg, width, h);
+}

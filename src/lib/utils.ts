@@ -17,3 +17,8 @@ export type WithElementRef<T, U extends HTMLElement = HTMLElement> = T & { ref?:
 export function getInputImageUrl(imageId: string, extension: string): string {
 	return `https://${PUBLIC_CLOUDFRONT_URL}/input/${imageId}.${extension}`;
 }
+
+/** Build CloudFront URL for a rendered artifact PNG */
+export function getRenderedArtifactUrl(generationId: string, stepId: number, artifactId: number): string {
+	return `https://${PUBLIC_CLOUDFRONT_URL}/${generationId}/${stepId}_${artifactId}.png`;
+}

@@ -1,0 +1,1 @@
+ALTER TABLE "pelican"."artifacts" ADD COLUMN "rendered" boolean DEFAULT false;

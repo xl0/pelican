@@ -43,6 +43,13 @@
       "when": 1766661426065,
       "tag": "0005_cheerful_sugar_man",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1766745951744,
+      "tag": "0006_tiresome_revanche",
+      "breakpoints": true
     }
   ]
 }

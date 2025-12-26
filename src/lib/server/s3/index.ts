@@ -76,6 +76,28 @@ export async function uploadStepArtifact(
 	return key;
 }
 
+/**
+ * Upload rendered PNG for an artifact.
+ * Path: {generationId}/{stepId}_{artifactId}.png
+ */
+export async function uploadRenderedArtifact(generationId: string, stepId: number, artifactId: number, data: Uint8Array): Promise<string> {
+	debug('Uploading rendered artifact for generation %s, step %d, artifact %d', generationId, stepId, artifactId);
+
+	const key = `${generationId}/${stepId}_${artifactId}.png`;
+
+	await s3.send(
+		new PutObjectCommand({
+			Bucket: S3_BUCKET,
+			Key: key,
+			Body: data,
+			ContentType: 'image/png'
+		})
+	);
+
+	debug('Rendered artifact uploaded to %s', key);
+	return key;
+}
+
 export async function deleteGenerationArtifacts(generationId: string): Promise<void> {
 	debug('Deleting artifacts for generation %s', generationId);
 	// Note: For proper cleanup, you'd list objects with prefix and delete them.

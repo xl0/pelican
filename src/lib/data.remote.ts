@@ -217,19 +217,27 @@ export const uploadArtifact = command(
 		generationId: v.string(),
 		stepId: v.number(),
 		content: v.string(),
-		format: v.picklist(['svg', 'ascii'])
+		format: v.picklist(['svg', 'ascii']),
+		renderedData: v.optional(v.instance(Uint8Array)), // PNG bytes if rendering succeeded
+		rendered: v.optional(v.boolean()) // true if rendering succeeded
 	}),
-	async ({ generationId, stepId, content, format }) => {
+	async ({ generationId, stepId, content, format, renderedData, rendered = false }) => {
 		let key: string | undefined;
-		const artifact = await db.db_insertArtifact({ stepId, body: content });
+		let renderedKey: string | undefined;
+		const artifact = await db.db_insertArtifact({ stepId, body: content, rendered });
 		try {
+			// Upload SVG/ASCII artifact
 			key = await s3.uploadStepArtifact(generationId, stepId, artifact.id, content, format);
-			return { id: artifact.id, key };
+			// Upload rendered PNG if provided
+			if (renderedData) {
+				renderedKey = await s3.uploadRenderedArtifact(generationId, stepId, artifact.id, renderedData);
+			}
+			return { id: artifact.id, key, renderedKey };
 		} catch (e) {
 			await db.db_deleteArtifact(artifact.id);
 			throw e;
 		} finally {
-			debug('uploadArtifact genId=%s stepId=%d key=%s', generationId, stepId, key);
+			debug('uploadArtifact genId=%s stepId=%d key=%s rendered=%s', generationId, stepId, key, renderedKey);
 		}
 	}
 );

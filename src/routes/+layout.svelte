@@ -28,12 +28,6 @@
 
 	let { data, children } = $props();
 
-	// Local UI state
-	let promptTemplatesOpen = $state(false);
-
-	// Raw output viewing
-	let showRawOutput = $state(false);
-
 	// Routes that bypass the main generation UI
 	const isPublic = $derived(page.route.id === '/public');
 
@@ -87,11 +81,12 @@
 		<div class="mx-auto max-w-7xl space-y-3">
 			<header class="flex items-center justify-between pb-3 border-b border-border">
 				<div>
-					<h1
-						class="text-3xl font-black tracking-tight bg-linear-to-r from-orange-500 via-red-500 to-pink-500 bg-clip-text text-transparent">
-						Pelican
-					</h1>
-					<p class="text-xs text-muted-foreground">AI-powered SVG and ASCII art generator</p>
+					<a href={resolve('/')}>
+						<h1
+							class="text-3xl font-black tracking-tight bg-linear-to-r from-orange-500 via-red-500 to-pink-500 bg-clip-text text-transparent">
+							Pelican
+						</h1>
+					</a>
 				</div>
 				<div class="flex items-center gap-2">
 					<a href={resolve('/public')} class="text-xs font-medium text-muted-foreground hover:text-orange-500 transition-colors">Gallery</a>
@@ -103,10 +98,10 @@
 			</header>
 
 			{#if app.currentGeneration}
-				<div class="flex">
+				<div class="flex flex-1 min-h-0">
 					<!-- Controls (shown when not showRaw) -->
 					<div
-						class="border-r border-border pr-3 overflow-hidden transition-all duration-200 {showRawOutput
+						class="border-r border-border pr-3 overflow-hidden transition-all duration-200 {p.showRawOutput.current
 							? 'w-0 opacity-0'
 							: 'w-1/2 opacity-100'}">
 						<div class="space-y-3 p-3 min-w-0">
@@ -129,11 +124,11 @@
 							<Separator />
 
 							<!-- Prompt Templates (Collapsible) -->
-							<Collapsible.Root bind:open={promptTemplatesOpen}>
+							<Collapsible.Root bind:open={p.promptTemplatesOpen.current}>
 								<Collapsible.Trigger
 									class="flex items-center justify-between w-full py-1.5 px-2 bg-muted hover:bg-muted/80 transition-colors">
 									<span class="text-xs font-semibold text-foreground">Prompt Templates</span>
-									<ChevronDown class="h-3 w-3 transition-transform {promptTemplatesOpen ? 'rotate-180' : ''}" />
+									<ChevronDown class="h-3 w-3 transition-transform {p.promptTemplatesOpen.current ? 'rotate-180' : ''}" />
 								</Collapsible.Trigger>
 
 								<Collapsible.Content class="pt-3 space-y-3">
@@ -194,7 +189,7 @@
 									{/if}
 									<div class="flex items-center gap-2">
 										<Label for="show-raw" class="text-xs font-medium text-foreground">Show Raw</Label>
-										<Switch id="show-raw" bind:checked={showRawOutput} />
+										<Switch id="show-raw" bind:checked={p.showRawOutput.current} />
 									</div>
 								</div>
 							</div>
@@ -207,16 +202,11 @@
 
 					<!-- Raw Output (shown when showRaw) -->
 					<div
-						class="border-l border-border pl-3 overflow-hidden transition-all duration-200 {showRawOutput
+						class="border-l border-border pl-3 overflow-hidden transition-all duration-200 flex flex-col {p.showRawOutput.current
 							? 'w-1/2 opacity-100'
 							: 'w-0 opacity-0 hidden'}">
-						<div class="h-full flex flex-col p-3 min-w-0">
-							<div class="flex items-center justify-between pb-2 border-b border-border">
-								<h2 class="text-sm font-bold text-foreground">Raw Output</h2>
-							</div>
-							<div class="flex-1 flex flex-col min-h-[400px] pt-3">
-								<RawOutput />
-							</div>
+						<div class="flex-1 min-h-0 flex flex-col p-3 min-w-0">
+							<RawOutput />
 						</div>
 					</div>
 				</div>

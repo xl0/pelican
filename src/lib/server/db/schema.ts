@@ -69,7 +69,8 @@ export const artifacts = pelican.table('artifacts', {
 	stepId: integer('step_id')
 		.notNull()
 		.references(() => steps.id, { onDelete: 'cascade' }),
-	body: text('body').default('')
+	body: text('body').default(''),
+	rendered: boolean('rendered').default(false) // true if PNG render succeeded and was uploaded
 });
 
 // Images are standalone entities (S3 path: input/{imageId}.{ext})
