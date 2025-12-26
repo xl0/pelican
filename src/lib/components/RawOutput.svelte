@@ -20,11 +20,11 @@
 	// Get URL of last rendered artifact from a step (if any)
 	function getStepRenderedUrl(step: (typeof steps)[number] | undefined): string | undefined {
 		if (!step?.id || !generationId) return undefined;
-		// Find last artifact with rendered=true
+		// Find last artifact without renderError (successfully rendered)
 		const artifacts = step.artifacts ?? [];
 		for (let i = artifacts.length - 1; i >= 0; i--) {
 			const art = artifacts[i];
-			if (art.rendered && art.id) {
+			if (!art.renderError && art.id) {
 				return getRenderedArtifactUrl(generationId, step.id, art.id);
 			}
 		}
@@ -132,7 +132,6 @@
 							extensions={[EditorView.lineWrapping]} />
 					</div>
 				{/if}
-
 
 				{@render imagesBlock(inputImages, 'h-20')}
 				<!-- Rendered image from previous step (for refinement) -->

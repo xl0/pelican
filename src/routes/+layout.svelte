@@ -140,7 +140,7 @@
 								<Button
 									class="w-full bg-linear-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold h-9 text-sm"
 									disabled={app.isGenerating}
-									onclick={() => generate(data.user)}>
+									onclick={() => generate(data.user.id)}>
 									{#if app.isGenerating}
 										<WandSparkles class="mr-2 h-4 w-4 animate-spin" />
 										Generating...

@@ -13,11 +13,27 @@ export const formatEnum = pelican.enum('formats', [...formatValues]);
 export const providerEnum = pelican.enum('providers', providerNames);
 export const statusEnum = pelican.enum('status', [...statusValues]);
 
+// Auth tables
+export const users = pelican.table('users', {
+	id: uuid('id').primaryKey().defaultRandom(),
+	username: text('username').unique(), // null = anonymous
+	passwordHash: text('password_hash'), // null = anonymous
+	createdAt: timestamp('created_at').notNull().defaultNow()
+});
+
+export const sessions = pelican.table('sessions', {
+	id: text('id').primaryKey(), // sha256 hash of token
+	userId: uuid('user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
+	expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull()
+});
+
 export const generations = pelican.table('generations', {
 	id: uuid('id').primaryKey().defaultRandom(),
-	// We dont really keep track of the users, a random id is saved in the browser
-	// to let the users retrieve their previous generations.
-	userId: uuid('user_id').notNull(),
+	userId: uuid('user_id')
+		.notNull()
+		.references(() => users.id),
 	title: text('title').notNull(),
 	prompt: text('prompt').notNull(),
 	format: formatEnum('format').notNull(),
@@ -43,6 +59,9 @@ export const generations = pelican.table('generations', {
 export const steps = pelican.table('steps', {
 	// Note: id increments globally to make sure the steps are in the right order
 	id: serial('id').primaryKey(),
+	userId: uuid('user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
 	generationId: uuid('gen_id')
 		.notNull()
 		.references(() => generations.id, { onDelete: 'cascade' }),
@@ -66,16 +85,22 @@ export const steps = pelican.table('steps', {
 // decide it's not good enough and generate anouither one
 export const artifacts = pelican.table('artifacts', {
 	id: serial('id').primaryKey(),
+	userId: uuid('user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
 	stepId: integer('step_id')
 		.notNull()
 		.references(() => steps.id, { onDelete: 'cascade' }),
 	body: text('body').default(''),
-	rendered: boolean('rendered').default(false) // true if PNG render succeeded and was uploaded
+	renderError: text('render_error') // null if rendered successfully, error message if failed
 });
 
 // Images are standalone entities (S3 path: input/{imageId}.{ext})
 export const images = pelican.table('images', {
 	id: uuid('id').primaryKey().defaultRandom(),
+	userId: uuid('user_id')
+		.notNull()
+		.references(() => users.id, { onDelete: 'cascade' }),
 	extension: text('extension').notNull().default('png')
 });
 
@@ -93,7 +118,23 @@ export const generationImages = pelican.table(
 	(t) => [primaryKey({ columns: [t.generationId, t.imageId] })]
 );
 
-export const genRelations = relations(generations, ({ many }) => ({
+export const userRelations = relations(users, ({ many }) => ({
+	sessions: many(sessions),
+	generations: many(generations)
+}));
+
+export const sessionRelations = relations(sessions, ({ one }) => ({
+	user: one(users, {
+		fields: [sessions.userId],
+		references: [users.id]
+	})
+}));
+
+export const genRelations = relations(generations, ({ one, many }) => ({
+	user: one(users, {
+		fields: [generations.userId],
+		references: [users.id]
+	}),
 	generationImages: many(generationImages),
 	steps: many(steps)
 }));
@@ -128,10 +169,18 @@ export const generationImageRelations = relations(generationImages, ({ one }) =>
 	})
 }));
 
+// User types
+export type User = typeof users.$inferSelect;
+export type NewUser = typeof users.$inferInsert;
+
+// Session types
+export type Session = typeof sessions.$inferSelect;
+export type NewSession = typeof sessions.$inferInsert;
+
 // Generation types
 export type Generation = typeof generations.$inferSelect;
 export type NewGeneration = typeof generations.$inferInsert;
-export type UpdateGeneration = { id: string } & Partial<Omit<NewGeneration, 'id'>>;
+export type UpdateGeneration = { id: string; userId: string } & Partial<Omit<NewGeneration, 'id' | 'userId'>>;
 
 // Step types
 export type Step = typeof steps.$inferSelect;

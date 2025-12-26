@@ -14,7 +14,7 @@ import {
 	type UpdateStep,
 	type NewArtifact
 } from './schema';
-import { eq, desc, asc } from 'drizzle-orm';
+import { eq, desc, asc, and } from 'drizzle-orm';
 import dbg from 'debug';
 
 const debug = dbg('app:db');
@@ -76,10 +76,10 @@ export async function db_getPublicGenerations(limit = 50) {
 	}
 }
 
-export async function db_getGeneration(id: string) {
+export async function db_getGeneration(id: string, userId?: string) {
 	try {
 		return await db.query.generations.findFirst({
-			where: eq(generations.id, id),
+			where: userId ? and(eq(generations.id, id), eq(generations.userId, userId)) : eq(generations.id, id),
 			with: {
 				steps: {
 					orderBy: asc(steps.id),
@@ -89,7 +89,7 @@ export async function db_getGeneration(id: string) {
 			}
 		});
 	} finally {
-		debug('getGeneration id=%s', id);
+		debug('getGeneration id=%s userId=%s', id, userId);
 	}
 }
 
@@ -106,11 +106,15 @@ export async function db_insertGeneration(data: NewGeneration) {
 
 export async function db_updateGeneration(data: UpdateGeneration) {
 	try {
-		const { id, ...rest } = data;
-		const res = await db.update(generations).set(rest).where(eq(generations.id, id)).returning();
+		const { id, userId, ...rest } = data;
+		const res = await db
+			.update(generations)
+			.set(rest)
+			.where(and(eq(generations.id, id), eq(generations.userId, userId)))
+			.returning();
 		return res[0];
 	} finally {
-		debug('updateGeneration id=%s', data.id);
+		debug('updateGeneration id=%s userId=%s', data.id, data.userId);
 	}
 }
 
@@ -140,21 +144,31 @@ export async function db_getStep(id: number) {
 export async function db_insertStep(data: NewStep) {
 	let result: { id: number } | undefined;
 	try {
+		// Verify generation belongs to user before inserting
+		const gen = await db.query.generations.findFirst({
+			where: and(eq(generations.id, data.generationId), eq(generations.userId, data.userId)),
+			columns: { id: true }
+		});
+		if (!gen) throw new Error('Generation not found or not owned by user');
 		const res = await db.insert(steps).values(data).returning();
 		result = res[0];
 		return result;
 	} finally {
-		debug('insertStep genId=%s id=%d', data.generationId, result?.id);
+		debug('insertStep genId=%s userId=%s id=%d', data.generationId, data.userId, result?.id);
 	}
 }
 
-export async function db_updateStep(data: UpdateStep) {
+export async function db_updateStep(data: UpdateStep, userId: string) {
 	try {
 		const { id, ...rest } = data;
-		const res = await db.update(steps).set(rest).where(eq(steps.id, id)).returning();
+		const res = await db
+			.update(steps)
+			.set(rest)
+			.where(and(eq(steps.id, id), eq(steps.userId, userId)))
+			.returning();
 		return res[0];
 	} finally {
-		debug('updateStep id=%d', data.id);
+		debug('updateStep id=%d userId=%s', data.id, userId);
 	}
 }
 
@@ -182,11 +196,17 @@ export async function db_getArtifact(id: number) {
 export async function db_insertArtifact(data: NewArtifact) {
 	let result: { id: number } | undefined;
 	try {
+		// Verify step belongs to user before inserting
+		const step = await db.query.steps.findFirst({
+			where: and(eq(steps.id, data.stepId), eq(steps.userId, data.userId)),
+			columns: { id: true }
+		});
+		if (!step) throw new Error('Step not found or not owned by user');
 		const res = await db.insert(artifacts).values(data).returning();
 		result = res[0];
 		return result;
 	} finally {
-		debug('insertArtifact stepId=%d id=%d', data.stepId, result?.id);
+		debug('insertArtifact stepId=%d userId=%s id=%d', data.stepId, data.userId, result?.id);
 	}
 }
 
@@ -222,22 +242,34 @@ export async function db_getImage(id: string) {
 	}
 }
 
-export async function db_insertImage(extension: string) {
+export async function db_insertImage(userId: string, extension: string) {
 	let result: { id: string } | undefined;
 	try {
-		const res = await db.insert(images).values({ extension }).returning();
+		const res = await db.insert(images).values({ userId, extension }).returning();
 		result = res[0];
 		return result;
 	} finally {
-		debug('insertImage id=%s ext=%s', result?.id, extension);
+		debug('insertImage id=%s userId=%s ext=%s', result?.id, userId, extension);
 	}
 }
 
-export async function db_linkImageToGeneration(generationId: string, imageId: string) {
+export async function db_linkImageToGeneration(userId: string, generationId: string, imageId: string) {
 	try {
+		// Verify generation and image both belong to user
+		// XXX can we combine into 1 query?
+		const gen = await db.query.generations.findFirst({
+			where: and(eq(generations.id, generationId), eq(generations.userId, userId)),
+			columns: { id: true }
+		});
+		if (!gen) throw new Error('Generation not found or not owned by user');
+		const img = await db.query.images.findFirst({
+			where: and(eq(images.id, imageId), eq(images.userId, userId)),
+			columns: { id: true }
+		});
+		if (!img) throw new Error('Image not found or not owned by user');
 		await db.insert(generationImages).values({ generationId, imageId }).onConflictDoNothing();
 	} finally {
-		debug('linkImageToGeneration genId=%s imgId=%s', generationId, imageId);
+		debug('linkImageToGeneration userId=%s genId=%s imgId=%s', userId, generationId, imageId);
 	}
 }
 

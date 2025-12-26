@@ -253,3 +253,105 @@ Generation happens entirely in the browser using Vercel AI SDK (`streamText`).
 - [ ] Fork generation from specific history step
 - [ ] Export refinement sequence as animation
 - [ ] Cost tracking display
+
+---
+
+## Auth System (Anonymous-First)
+
+### Design
+
+Unified session system for all users. Anonymous users get sessions too - same security as registered, just no credentials.
+
+### User States
+
+| State      | `username` | `passwordHash` | Session Expiry      |
+| ---------- | ---------- | -------------- | ------------------- |
+| Anonymous  | `null`     | `null`         | Never (or 1 year)   |
+| Registered | set        | hashed         | 30 days (refreshed) |
+
+**Lost session = lost data** for anonymous users. Acceptable tradeoff.
+
+### Schema
+
+```sql
+-- users table (pelican schema)
+id: uuid PK
+username: text | null  -- null = anonymous
+passwordHash: text | null  -- null = anonymous
+createdAt: timestamp
+
+-- sessions table (pelican schema)
+id: text PK (sha256 of token)
+userId: uuid FK -> users
+expiresAt: timestamp  -- far future for anon, 30d for registered
+```
+
+### Flow
+
+```
+Request arrives
+├─ Has session cookie?
+│  ├─ Valid session → locals.user = user (anon or registered)
+│  │  └─ Refresh expiry if registered & near expiry
+│  └─ Invalid/expired → delete cookie, create new anon user+session
+└─ No cookie → create anon user + session + set cookie
+```
+
+### Registration (anon → registered)
+
+1. User provides username + password
+2. Update existing user record (set username, passwordHash)
+3. Update session expiry to 30 days
+4. Same user ID → all generations preserved
+
+### Login (existing registered)
+
+1. Validate username/password
+2. Create new session for that user
+3. Current anonymous user is orphaned (no merge)
+
+### Implementation ✓
+
+- `src/lib/server/db/schema.ts` - users, sessions tables with relations
+- `src/lib/server/auth.ts` - Session management (lucia-style), anon user creation
+- `src/hooks.server.ts` - DEV_AUTH_USER support + auto-create anon user+session
+- `src/routes/auth/login/` - Login/register/logout actions
+- Migration `0007_salty_vargas.sql` - Creates tables, migrates existing user_ids
+
+### Auth Boundary (`data.remote.ts`) ✓
+
+Two-layer auth: remote functions verify userId, DB functions use WHERE clauses.
+
+**Pattern:**
+
+1. Client passes `userId` in request
+2. Remote function calls `assertUserIdMatches(userId)` - 403 if mismatch with session
+3. DB function uses `WHERE userId = ? AND id = ?` (or `generationId` for steps)
+
+**Helpers:**
+
+- `getCurrentUserId()` - Gets user ID from `getRequestEvent().locals.user`
+- `assertUserIdMatches(userId)` - 403 if userId doesn't match session
+
+**All tables now have `userId`:** generations, steps, artifacts, images
+
+**Functions with auth:**
+| Function | Client passes | DB ownership check |
+|----------|---------------|----------|
+| `insertGeneration` | (none, userId from session) | - |
+| `updateGeneration` | `userId` | `WHERE id AND userId` |
+| `getGenerations` | (none, userId from session) | `WHERE userId` |
+| `getGeneration` | optional `userId` | `WHERE id [AND userId]` |
+| `insertStep` | `userId`, `generationId` | verifies gen.userId = step.userId |
+| `updateStep` | `userId` | `WHERE id AND userId` |
+| `uploadInputImage` | `userId`, `generationId` | linkImage verifies gen+image ownership |
+| `uploadArtifact` | `userId`, `generationId`, `stepId` | verifies step.userId = userId |
+| `linkImageToGeneration` | `userId`, `generationId`, `imageId` | verifies gen+image ownership |
+
+**Artifacts schema:** `renderError` (text, null = success) replaces `rendered` (boolean)
+
+**Public (no auth):**
+
+- `getGeneration` (without userId), `getPublicGenerations` - all generations are public
+- `getStep`, `getSteps`, `getArtifact`, `getArtifacts` - read-only
+- `getImage`, `getImagesForGeneration` - read-only

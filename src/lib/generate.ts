@@ -114,7 +114,6 @@ export async function generate(userId: string): Promise<GenerateResult> {
 
 		// 2. Insert generation into DB
 		const dbGen = await insertGeneration({
-			userId,
 			title: gen.title || gen.prompt.slice(0, 50),
 			prompt: gen.prompt,
 			format: gen.format,
@@ -139,7 +138,7 @@ export async function generate(userId: string): Promise<GenerateResult> {
 			const ext = file.name.split('.').pop() || 'png';
 			const buffer = await file.arrayBuffer();
 			const data = new Uint8Array(buffer) as Uint8Array<ArrayBuffer>;
-			const uploaded = await uploadInputImage({ generationId, data, extension: ext });
+			const uploaded = await uploadInputImage({ userId, generationId, data, extension: ext });
 			// Add to gen.images so we have the ID
 			gen.images = [...gen.images, { id: uploaded.id, extension: ext }];
 			// Use URL for consistency
@@ -154,7 +153,7 @@ export async function generate(userId: string): Promise<GenerateResult> {
 			for (const img of gen.images) {
 				const url = getInputImageUrl(img.id, img.extension);
 				inputImageParts.push({ type: 'image', image: new URL(url, window.location.origin) });
-				await linkImageToGeneration({ generationId, imageId: img.id });
+				await linkImageToGeneration({ userId, generationId, imageId: img.id });
 				debug('Added existing image', { id: img.id });
 			}
 		}
@@ -217,6 +216,7 @@ export async function generate(userId: string): Promise<GenerateResult> {
 
 			// Insert step in DB
 			const dbStep = await insertStep({
+				userId,
 				generationId,
 				renderedPrompt,
 				status: 'generating'
@@ -293,6 +293,7 @@ export async function generate(userId: string): Promise<GenerateResult> {
 			// Update step in DB
 			debug('Updating step in DB', { stepId: dbStep.id, rawOutputLen: (step.rawOutput ?? '').length });
 			await updateStep({
+				userId,
 				id: dbStep.id,
 				status: 'completed',
 				rawOutput: step.rawOutput ?? '',
@@ -308,7 +309,7 @@ export async function generate(userId: string): Promise<GenerateResult> {
 			for (let i = 0; i < finalArtifacts.length; i++) {
 				const art = finalArtifacts[i];
 				let renderedData: Uint8Array<ArrayBuffer> | undefined;
-				let rendered = false;
+				let renderError: string | undefined;
 
 				// Try to render artifact to PNG
 				try {
@@ -317,29 +318,31 @@ export async function generate(userId: string): Promise<GenerateResult> {
 						height: gen.height
 					});
 					renderedData = new Uint8Array((await blob.arrayBuffer()) as ArrayBuffer);
-					rendered = true;
 					// Keep last successful render for conversation history
 					lastRenderedBlob = blob;
 				} catch (err) {
-					debug('Failed to render artifact', { index: i, error: err });
+					renderError = err instanceof Error ? err.message : String(err);
+					debug('Failed to render artifact', { index: i, error: renderError });
 				}
 
 				const uploaded = await uploadArtifact({
+					userId,
 					generationId,
 					stepId: dbStep.id,
 					content: art.body,
 					format: gen.format,
 					renderedData,
-					rendered
+					renderError
 				});
 				if (step.artifacts[i]) {
 					step.artifacts[i].id = uploaded.id;
 				}
-				debug('Uploaded artifact', { id: uploaded.id, rendered });
+				debug('Uploaded artifact', { id: uploaded.id, renderError });
 			}
 
 			// If not the last step and we have a rendered image, use for history
 			const isLastStep = stepNum === maxSteps - 1;
+			// XXX Let the llm know we could not render the last artifact and thus we are sending the other one.
 			if (!isLastStep && lastRenderedBlob) {
 				// Store blob for next step's message building
 				stepHistory.push({ rawOutput: step.rawOutput ?? '', renderedBlob: lastRenderedBlob });
@@ -364,6 +367,7 @@ export async function generate(userId: string): Promise<GenerateResult> {
 		const lastStep = gen.steps?.[gen.steps.length - 1];
 		if (lastStep?.id) {
 			await updateStep({
+				userId,
 				id: lastStep.id,
 				status: 'failed',
 				errorMessage: errorMsg

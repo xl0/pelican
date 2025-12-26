@@ -152,6 +152,7 @@ async function seed() {
 	const [step1_1] = await db
 		.insert(schema.steps)
 		.values({
+			userId: DEV_USER_ID,
 			generationId: gen1.id,
 			renderedPrompt: 'Generate an SVG of: A friendly pelican standing on a sandy beach with a blue sky',
 			status: 'completed',
@@ -166,13 +167,14 @@ async function seed() {
 
 	// Step 1: 2 artifacts (first attempts)
 	await db.insert(schema.artifacts).values([
-		{ stepId: step1_1.id, body: makePelicanSvg(1, 1) },
-		{ stepId: step1_1.id, body: makePelicanSvg(1, 2) }
+		{ userId: DEV_USER_ID, stepId: step1_1.id, body: makePelicanSvg(1, 1) },
+		{ userId: DEV_USER_ID, stepId: step1_1.id, body: makePelicanSvg(1, 2) }
 	]);
 
 	const [step1_2] = await db
 		.insert(schema.steps)
 		.values({
+			userId: DEV_USER_ID,
 			generationId: gen1.id,
 			renderedPrompt: 'Refine the previous SVG to add more detail',
 			status: 'completed',
@@ -187,9 +189,9 @@ async function seed() {
 
 	// Step 2: 3 artifacts (refinement attempts)
 	await db.insert(schema.artifacts).values([
-		{ stepId: step1_2.id, body: makePelicanSvg(2, 1) },
-		{ stepId: step1_2.id, body: makePelicanSvg(2, 2) },
-		{ stepId: step1_2.id, body: makePelicanSvg(2, 3) }
+		{ userId: DEV_USER_ID, stepId: step1_2.id, body: makePelicanSvg(2, 1) },
+		{ userId: DEV_USER_ID, stepId: step1_2.id, body: makePelicanSvg(2, 2) },
+		{ userId: DEV_USER_ID, stepId: step1_2.id, body: makePelicanSvg(2, 3) }
 	]);
 
 	console.log(`  ✓ Created generation ${gen1.id} with 2 steps (5 artifacts)\n`);
@@ -217,6 +219,7 @@ async function seed() {
 	const [step2_1] = await db
 		.insert(schema.steps)
 		.values({
+			userId: DEV_USER_ID,
 			generationId: gen2.id,
 			renderedPrompt: 'Generate an SVG of: A cute orange tabby cat with green eyes sitting happily',
 			status: 'completed',
@@ -231,9 +234,9 @@ async function seed() {
 
 	// Multiple artifacts with different color themes
 	await db.insert(schema.artifacts).values([
-		{ stepId: step2_1.id, body: makeCatSvg(1, 1, 0) }, // Orange
-		{ stepId: step2_1.id, body: makeCatSvg(1, 2, 1) }, // Purple
-		{ stepId: step2_1.id, body: makeCatSvg(1, 3, 2) } // Red
+		{ userId: DEV_USER_ID, stepId: step2_1.id, body: makeCatSvg(1, 1, 0) }, // Orange
+		{ userId: DEV_USER_ID, stepId: step2_1.id, body: makeCatSvg(1, 2, 1) }, // Purple
+		{ userId: DEV_USER_ID, stepId: step2_1.id, body: makeCatSvg(1, 3, 2) } // Red
 	]);
 
 	console.log(`  ✓ Created generation ${gen2.id} with 1 step (3 artifacts)\n`);
@@ -261,6 +264,7 @@ async function seed() {
 	const [step3_1] = await db
 		.insert(schema.steps)
 		.values({
+			userId: DEV_USER_ID,
 			generationId: gen3.id,
 			renderedPrompt: 'Generate ASCII art of: A simple cat in ASCII art style',
 			status: 'completed',
@@ -274,6 +278,7 @@ async function seed() {
 		.returning();
 
 	await db.insert(schema.artifacts).values({
+		userId: DEV_USER_ID,
 		stepId: step3_1.id,
 		body: SAMPLE_ASCII
 	});
@@ -301,6 +306,7 @@ async function seed() {
 		.returning();
 
 	await db.insert(schema.steps).values({
+		userId: DEV_USER_ID,
 		generationId: gen4.id,
 		renderedPrompt: 'Generate an SVG of: A geometric pattern',
 		status: 'completed',

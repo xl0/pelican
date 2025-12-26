@@ -1,4 +1,5 @@
-import { command, query } from '$app/server';
+import { command, getRequestEvent, query } from '$app/server';
+import { error } from '@sveltejs/kit';
 import { providerNames } from '$lib/models';
 import * as db from '$lib/server/db';
 import { type NewStep, type UpdateGeneration, type UpdateStep, formatValues, statusValues } from '$lib/server/db/schema';
@@ -8,13 +9,21 @@ import * as v from 'valibot';
 
 const debug = dbg('app:remote');
 
+function getCurrentUserId(): string {
+	const { locals } = getRequestEvent();
+	return locals.user.id;
+}
+
+function assertUserIdMatches(userId: string): void {
+	if (userId !== getCurrentUserId()) error(403, 'Nice try hecker');
+}
+
 // ============================================================================
 // Generations
 // ============================================================================
 
 export const insertGeneration = command(
 	v.object({
-		userId: v.string(),
 		title: v.string(),
 		prompt: v.string(),
 		format: v.picklist(formatValues),
@@ -29,10 +38,11 @@ export const insertGeneration = command(
 		sendFullHistory: v.boolean()
 	}),
 	async (data) => {
+		const userId = getCurrentUserId();
 		try {
-			return await db.db_insertGeneration(data);
+			return await db.db_insertGeneration({ ...data, userId });
 		} finally {
-			debug('insertGeneration');
+			debug('insertGeneration userId=%s', userId);
 		}
 	}
 );
@@ -40,6 +50,7 @@ export const insertGeneration = command(
 export const updateGeneration = command(
 	v.object({
 		id: v.string(),
+		userId: v.string(),
 		title: v.optional(v.string()),
 		prompt: v.optional(v.string()),
 		format: v.optional(v.picklist(formatValues)),
@@ -54,8 +65,9 @@ export const updateGeneration = command(
 		sendFullHistory: v.optional(v.boolean())
 	}),
 	async (data) => {
+		assertUserIdMatches(data.userId);
 		try {
-			return await db.db_updateGeneration(data as UpdateGeneration);
+			return await db.db_updateGeneration(data);
 		} finally {
 			debug('updateGeneration id=%s', data.id);
 		}
@@ -70,7 +82,8 @@ export const getGeneration = query(v.object({ id: v.string() }), async ({ id }) 
 	}
 });
 
-export const getGenerations = query(v.object({ userId: v.string() }), async ({ userId }) => {
+export const getGenerations = query(async () => {
+	const userId = getCurrentUserId();
 	try {
 		return await db.db_getGenerations(userId);
 	} finally {
@@ -92,13 +105,15 @@ export const getPublicGenerations = query(v.object({ limit: v.optional(v.number(
 
 export const insertStep = command(
 	v.object({
+		userId: v.string(),
 		generationId: v.string(),
 		renderedPrompt: v.string(),
 		status: v.picklist(statusValues)
 	}),
 	async (data) => {
+		assertUserIdMatches(data.userId);
 		try {
-			return await db.db_insertStep(data as NewStep);
+			return await db.db_insertStep(data);
 		} finally {
 			debug('insertStep genId=%s', data.generationId);
 		}
@@ -107,6 +122,7 @@ export const insertStep = command(
 
 export const updateStep = command(
 	v.object({
+		userId: v.string(),
 		id: v.number(),
 		renderedPrompt: v.optional(v.string()),
 		status: v.optional(v.picklist(statusValues)),
@@ -119,8 +135,10 @@ export const updateStep = command(
 		completedAt: v.optional(v.nullable(v.date()))
 	}),
 	async (data) => {
+		assertUserIdMatches(data.userId);
+		const { userId, ...stepData } = data;
 		try {
-			return await db.db_updateStep(data as UpdateStep);
+			return await db.db_updateStep(stepData, userId);
 		} finally {
 			debug('updateStep id=%d', data.id);
 		}
@@ -189,19 +207,21 @@ export const getImagesForGeneration = query(v.object({ generationId: v.string() 
 
 export const uploadInputImage = command(
 	v.object({
+		userId: v.string(),
 		generationId: v.string(),
 		data: v.instance(Uint8Array),
 		extension: v.string()
 	}),
-	async ({ generationId, data, extension }) => {
+	async ({ userId, generationId, data, extension }) => {
+		assertUserIdMatches(userId);
 		let key: string | undefined;
 		// Create standalone image record
-		const image = await db.db_insertImage(extension);
+		const image = await db.db_insertImage(userId, extension);
 		try {
 			// Upload to S3 (path: input/{imageId}.{ext})
 			key = await s3.uploadInputImage(image.id, data, extension);
 			// Link image to generation
-			await db.db_linkImageToGeneration(generationId, image.id);
+			await db.db_linkImageToGeneration(userId, generationId, image.id);
 			return { id: image.id, key };
 		} catch (e) {
 			await db.db_deleteImage(image.id);
@@ -214,17 +234,19 @@ export const uploadInputImage = command(
 
 export const uploadArtifact = command(
 	v.object({
+		userId: v.string(),
 		generationId: v.string(),
 		stepId: v.number(),
 		content: v.string(),
 		format: v.picklist(['svg', 'ascii']),
 		renderedData: v.optional(v.instance(Uint8Array)), // PNG bytes if rendering succeeded
-		rendered: v.optional(v.boolean()) // true if rendering succeeded
+		renderError: v.optional(v.nullable(v.string())) // error message if rendering failed
 	}),
-	async ({ generationId, stepId, content, format, renderedData, rendered = false }) => {
+	async ({ userId, generationId, stepId, content, format, renderedData, renderError }) => {
+		assertUserIdMatches(userId);
 		let key: string | undefined;
 		let renderedKey: string | undefined;
-		const artifact = await db.db_insertArtifact({ stepId, body: content, rendered });
+		const artifact = await db.db_insertArtifact({ userId, stepId, body: content, renderError });
 		try {
 			// Upload SVG/ASCII artifact
 			key = await s3.uploadStepArtifact(generationId, stepId, artifact.id, content, format);
@@ -237,18 +259,20 @@ export const uploadArtifact = command(
 			await db.db_deleteArtifact(artifact.id);
 			throw e;
 		} finally {
-			debug('uploadArtifact genId=%s stepId=%d key=%s rendered=%s', generationId, stepId, key, renderedKey);
+			debug('uploadArtifact genId=%s stepId=%d key=%s renderError=%s', generationId, stepId, key, renderError);
 		}
 	}
 );
 
 export const linkImageToGeneration = command(
 	v.object({
+		userId: v.string(),
 		generationId: v.string(),
 		imageId: v.string()
 	}),
-	async ({ generationId, imageId }) => {
-		await db.db_linkImageToGeneration(generationId, imageId);
+	async ({ userId, generationId, imageId }) => {
+		assertUserIdMatches(userId);
+		await db.db_linkImageToGeneration(userId, generationId, imageId);
 		debug('linkImageToGeneration genId=%s imgId=%s', generationId, imageId);
 	}
 );

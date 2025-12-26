@@ -50,6 +50,27 @@
       "when": 1766745951744,
       "tag": "0006_tiresome_revanche",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1766757327676,
+      "tag": "0007_salty_vargas",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1766759746853,
+      "tag": "0008_futuristic_plazm",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1766761636792,
+      "tag": "0009_quiet_ender_wiggin",
+      "breakpoints": true
     }
   ]
 }
