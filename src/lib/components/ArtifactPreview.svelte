@@ -81,7 +81,7 @@
 			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div
-				class="group flex items-center justify-center border border-border relative overflow-hidden [&>svg]:w-full [&>svg]:h-auto bg-muted/10 h-full w-full transition-colors {body &&
+				class="group flex items-center justify-center border border-border relative overflow-hidden [&>svg]:w-full [&>svg]:h-auto bg-muted/10 transition-colors {body &&
 				!app.isGenerating
 					? 'cursor-zoom-in hover:bg-muted/20'
 					: ''}"

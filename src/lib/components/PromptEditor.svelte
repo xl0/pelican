@@ -109,13 +109,6 @@
 		}
 		return missing;
 	});
-
-	const errorTheme = EditorView.theme({
-		'.cm-lintRange-error': {
-			backgroundColor: 'rgba(239, 68, 68, 0.3)',
-			borderBottom: '2px solid rgba(239, 68, 68, 0.6)'
-		}
-	});
 </script>
 
 <div class={cn('space-y-1.5 prompt-editor', className)}>
@@ -123,7 +116,7 @@
 		<Label class="text-xs font-semibold text-foreground">{title}</Label>
 		<div class="flex items-center gap-4">
 			<div class="flex items-center gap-1.5">
-				<Label class="text-[10px] uppercase font-bold text-muted-foreground">Preview</Label>
+				<Label class="text-tiny uppercase font-bold text-muted-foreground">Preview</Label>
 				<Switch bind:checked={showPreview} />
 			</div>
 			{#if onReset}
@@ -137,22 +130,13 @@
 	{#if showPreview}
 		<div class="relative overflow-hidden rounded-md border border-border shadow-sm">
 			<!-- lang={markdown()} -->
-			<CodeMirror
-				value={rendered}
-				theme={oneDark}
-				lineNumbers={false}
-				editable={false}
-				extensions={[EditorView.lineWrapping]} />
+			<CodeMirror value={rendered} theme={oneDark} lineNumbers={false} editable={false} extensions={[EditorView.lineWrapping]} />
 		</div>
 	{:else}
 		<div class={'relative overflow-hidden rounded-md border border-border shadow-sm focus-within:ring-1 focus-within:ring-ring'}>
 			<!-- syntaxHighlighting={false} -->
 			<!-- lang={jinja()} -->
-			<CodeMirror
-				bind:value={template}
-				theme={oneDark}
-				lineNumbers={false}
-				extensions={[EditorView.lineWrapping, syntaxLinter, errorTheme]} />
+			<CodeMirror bind:value={template} theme={oneDark} lineNumbers={false} extensions={[EditorView.lineWrapping, syntaxLinter]} />
 		</div>
 	{/if}
 
@@ -165,7 +149,7 @@
 		{/if}
 
 		{#if missingVariables.length > 0}
-			<span class="flex items-center text-orange-600 dark:text-orange-400 font-medium">
+			<span class="flex items-center text-primary font-medium">
 				<CircleAlert class="mr-1 h-3 w-3" />
 				Warning: Missing required variable {missingVariables.map((v) => `{{${v}}}`).join(', ')}
 			</span>

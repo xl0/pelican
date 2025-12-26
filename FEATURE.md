@@ -18,11 +18,10 @@ src/lib/:
     RawOutput.svelte: Raw model output panel (step.rawOutput)
     CopyButton.svelte: Copy-to-clipboard with checkmark feedback
     CostDisplay.svelte: Token usage and cost display
-    InputImagesPreview.svelte: Reference image upload/preview
     ModelSettings.svelte: Provider, model, API key, endpoint
     OutputSettings.svelte: Format, dimensions, max steps
     PromptEditor.svelte: CodeMirror-based template editor
-    PromptInput.svelte: Main prompt textarea
+    PromptInput.svelte: Main prompt textarea + reference images
     PromptTermplates.svelte: Initial/refinement template sections
     ui/: shadcn-svelte primitives (Button, Switch, etc.)
   data.remote.ts: SvelteKit remote functions (query/command)
@@ -201,51 +200,20 @@ Generation happens entirely in the browser using Vercel AI SDK (`streamText`).
 
 ## Current Status
 
-### Completed This Session
+### Completed
 
-- [x] **Multi-step generation** (refinement loop):
-  - `generate.ts` refactored to loop for `maxSteps` iterations
-  - Uses `initialTemplate` for step 1, `refinementTemplate` for steps 2+
-  - Uses pre-rendered prompts from `app.renderedPrompt`/`renderedRefinementPrompt`
-  - Renders artifacts to PNG Blob and sends to LLM via Uint8Array
-  - **Message structure per step**:
-    - User: input images (via URL) + initial prompt
-    - (For refinement) Assistant: previous step output + User: rendered image (Uint8Array) + refinement prompt
-  - `stepHistory[]` tracks each step's output and rendered Blob (for next refinement)
-  - `sendFullHistory`: includes all previous steps vs just last step
-  - **Svelte 5 $state proxy fix**: access step via `gen.steps[stepNum]` not direct object ref
-- [x] **Rendered artifact storage** (S3):
-  - Schema: `artifacts.rendered` boolean to track if rendering succeeded
-  - svg.ts: `svgToPngBlob`/`asciiToPngBlob` return Blob (no base64 conversion needed)
-  - s3: `uploadRenderedArtifact()` uploads PNG to `{genId}/{stepId}_{artifactId}.png`
-  - uploadArtifact: accepts `renderedData` bytes + `rendered` flag
-  - RawOutput: displays rendered images via S3 URL (`getRenderedArtifactUrl`)
-- [x] **Refactored image handling**:
-  - `inputImageParts[]` uses URL for existing images, Uint8Array for new uploads
-  - Pending images uploaded first, then added to `gen.images` with ID
-  - No base64 conversion - Vercel AI SDK accepts URL/Uint8Array directly
-- [x] **Enhanced RawOutput component**:
-  - Shows User/Assistant conversation format
-  - Shows rendered previous step image via S3 URL (from artifact.rendered)
-  - CodeMirror for code display with line numbers and wrapping
-  - "All Steps" toggle (persisted) to view all steps
-- [x] **Persisted UI State**:
-  - `promptTemplatesOpen` and `showRawOutput` moved to `persisted.svelte.ts`
-  - Values persist across reloads (localStorage)
-
-### Previously Completed
-
-- [x] Fixed streaming reactivity - `gen.steps = [...gen.steps]` in onChunk
-- [x] Input image upload: File → Uint8Array conversion
-- [x] Images included in AI prompts (both pending and existing)
-- [x] Refactored images to standalone entities (many-to-many)
-- [x] Single-step generation with Vercel AI SDK
-- [x] Template reset functionality (persisted vs DB originals)
-- [x] All providers: OpenAI, Anthropic, Google, xAI, OpenRouter, Custom
-- [x] Step/artifact selection and preview
-- [x] Raw output panel with copy button
-- [x] ASCII FG/BG color pickers (persisted)
-- [x] Public gallery page
+- Multi-step generation with refinement loop, rendered artifact storage (S3)
+- Refactored image handling (many-to-many, URL/Uint8Array for AI SDK)
+- Enhanced RawOutput with conversation format and CodeMirror
+- Persisted UI state (promptTemplatesOpen, showRawOutput)
+- All providers, step/artifact selection, template reset, public gallery
+- Auth system (anonymous-first with sessions)
+- **Style Cleanup (Dec 2025)**:
+  - Added semantic CSS variables: `--user`, `--user-bg`, `--assistant`, `--assistant-bg`, `--success`, `--ascii-grid-stroke`, `--ascii-frame-stroke`
+  - Exposed semantic colors to Tailwind: `text-user`, `bg-user-bg`, `text-assistant`, `bg-assistant-bg`, `text-success`
+  - Removed all gradients from titles and buttons (using solid `primary` color)
+  - Replaced all inline `orange-*`, `slate-*`, `blue-*`, `green-*`, `emerald-*` colors with semantic variables
+  - Replaced `.ascii-grid`/`.ascii-frame` hex colors with CSS variables
 
 ### Backlog
 

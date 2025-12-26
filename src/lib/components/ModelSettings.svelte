@@ -58,16 +58,12 @@
 
 			<div class="space-y-1.5">
 				{#if selectedProvider === 'custom'}
-					<Label for="custom-model-id" class="text-xs font-semibold text-slate-700 dark:text-slate-300">Model ID</Label>
-					<Input
-						id="custom-model-id"
-						bind:value={gen.model}
-						placeholder="e.g. my-model"
-						class="border-slate-300 dark:border-slate-700 h-8 text-sm" />
+					<Label for="custom-model-id" class="text-xs font-semibold text-foreground">Model ID</Label>
+					<Input id="custom-model-id" bind:value={gen.model} placeholder="e.g. my-model" class="border-border h-8 text-sm" />
 				{:else}
-					<Label for="model-select" class="text-xs font-semibold text-slate-700 dark:text-slate-300">Model</Label>
+					<Label for="model-select" class="text-xs font-semibold text-foreground">Model</Label>
 					<Select type="single" value={gen.model} onValueChange={handleModelChange}>
-						<SelectTrigger class="border-slate-300 dark:border-slate-700 h-8 text-sm">
+						<SelectTrigger class="border-border h-8 text-sm">
 							{modelLabel}
 						</SelectTrigger>
 						<SelectContent>
@@ -83,24 +79,20 @@
 
 		{#if selectedModel === 'custom' && selectedProvider !== 'custom'}
 			<div class="space-y-1.5">
-				<Label for="custom-model-id-override" class="text-xs font-semibold text-slate-700 dark:text-slate-300">Custom Model ID</Label>
+				<Label for="custom-model-id-override" class="text-xs font-semibold text-foreground">Custom Model ID</Label>
 				<Input
 					id="custom-model-id-override"
 					bind:value={gen.model}
 					placeholder="e.g. my-finetuned-model"
-					class="border-slate-300 dark:border-slate-700 h-8 text-sm" />
+					class="border-border h-8 text-sm" />
 			</div>
 		{/if}
 
 		<div class="space-y-1.5">
-			<Label for="endpoint" class="text-xs font-semibold text-slate-700 dark:text-slate-300">
+			<Label for="endpoint" class="text-xs font-semibold text-foreground">
 				API Endpoint {#if selectedProvider === 'custom'}<span class="text-destructive">*</span>{/if}
 			</Label>
-			<Input
-				id="endpoint"
-				bind:value={gen.endpoint}
-				placeholder={endpointPlaceholder}
-				class="border-slate-300 dark:border-slate-700 h-8 text-sm" />
+			<Input id="endpoint" bind:value={gen.endpoint} placeholder={endpointPlaceholder} class="border-border h-8 text-sm" />
 		</div>
 
 		<div class="space-y-1.5">

@@ -38,6 +38,14 @@
 	--sidebar-accent-foreground: oklch(0.208 0.042 265.755);
 	--sidebar-border: oklch(0.929 0.013 255.508);
 	--sidebar-ring: oklch(0.704 0.04 256.788);
+	/* Semantic colors for messages and highlights */
+	--user: oklch(0.55 0.15 250);
+	--user-bg: oklch(0.55 0.15 250 / 10%);
+	--assistant: oklch(0.55 0.15 150);
+	--assistant-bg: oklch(0.55 0.15 150 / 10%);
+	--success: oklch(0.55 0.15 150);
+	--ascii-grid-stroke: oklch(0.7 0.1 210);
+	--ascii-frame-stroke: oklch(0.75 0.15 50);
 }
 
 .dark {
@@ -72,6 +80,14 @@
 	--sidebar-accent-foreground: oklch(0.984 0.003 247.858);
 	--sidebar-border: oklch(1 0 0 / 10%);
 	--sidebar-ring: oklch(0.551 0.027 264.364);
+	/* Semantic colors for dark mode */
+	--user: oklch(0.65 0.15 250);
+	--user-bg: oklch(0.55 0.15 250 / 15%);
+	--assistant: oklch(0.65 0.15 150);
+	--assistant-bg: oklch(0.55 0.15 150 / 15%);
+	--success: oklch(0.65 0.15 150);
+	--ascii-grid-stroke: oklch(0.65 0.1 210);
+	--ascii-frame-stroke: oklch(0.7 0.15 50);
 }
 
 @theme inline {
@@ -110,16 +126,31 @@
 	--color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
 	--color-sidebar-border: var(--sidebar-border);
 	--color-sidebar-ring: var(--sidebar-ring);
+	/* Semantic colors */
+	--color-user: var(--user);
+	--color-user-bg: var(--user-bg);
+	--color-assistant: var(--assistant);
+	--color-assistant-bg: var(--assistant-bg);
+	--color-success: var(--success);
+	/* Custom font sizes */
+	--font-size-micro: 6px;
+	--font-size-tiny: 10px;
 }
 
 .ascii-grid {
-	stroke: #87cefa;
+	stroke: var(--ascii-grid-stroke);
 	stroke-width: 0.03;
 	opacity: 0.5;
 }
 .ascii-frame {
-	stroke: #ffb366;
+	stroke: var(--ascii-frame-stroke);
 	stroke-width: 0.05;
+}
+
+/* CodeMirror lint error highlighting */
+.cm-lintRange-error {
+	background-color: oklch(from var(--destructive) l c h / 0.3);
+	border-bottom: 2px solid oklch(from var(--destructive) l c h / 0.6);
 }
 
 @layer base {

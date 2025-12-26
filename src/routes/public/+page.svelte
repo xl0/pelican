@@ -27,9 +27,7 @@
 	<header class="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
 		<div class="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
 			<div>
-				<h1 class="text-3xl font-black tracking-tight bg-linear-to-r from-orange-500 via-red-500 to-pink-500 bg-clip-text text-transparent">
-					Gallery
-				</h1>
+				<h1 class="text-3xl font-black tracking-tight text-primary">Gallery</h1>
 				<p class="text-sm text-muted-foreground">AI-generated SVG and ASCII artwork</p>
 			</div>
 			<Button variant="outline" href="/">
@@ -77,7 +75,7 @@
 						{@const body = getArtifactBody(gen)}
 						<a href="/{gen.id}" class="group h-full">
 							<Card.Root
-								class="h-full flex flex-col overflow-hidden transition-all duration-200 hover:border-orange-500/50 hover:shadow-lg hover:shadow-orange-500/10 group-hover:-translate-y-1">
+								class="h-full flex flex-col overflow-hidden transition-all duration-200 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 group-hover:-translate-y-1">
 								<!-- Preview -->
 								<div class="p-4 bg-muted/50">
 									<AspectRatio ratio={1} class="rounded overflow-hidden bg-muted">
@@ -86,7 +84,7 @@
 												{@html body}
 											</div>
 										{:else if body && gen.format === 'ascii'}
-											<div class="w-full h-full bg-slate-950 text-emerald-400">
+											<div class="w-full h-full bg-background text-foreground">
 												<AsciiArt text={body} />
 											</div>
 										{:else}
@@ -99,7 +97,7 @@
 
 								<Card.Header class="pb-2 flex-1">
 									<div class="flex items-start justify-between gap-2">
-										<Card.Title class="text-base truncate group-hover:text-orange-500 transition-colors">
+										<Card.Title class="text-base truncate group-hover:text-primary transition-colors">
 											{gen.title}
 										</Card.Title>
 										<Badge variant={gen.format === 'svg' ? 'default' : 'secondary'} class="shrink-0">

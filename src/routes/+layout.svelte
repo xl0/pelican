@@ -81,18 +81,11 @@
 			<header class="flex items-center justify-between pb-3 border-b border-border">
 				<div>
 					<a href={resolve('/')}>
-						<h1
-							class="text-3xl font-black tracking-tight bg-linear-to-r from-orange-500 via-red-500 to-pink-500 bg-clip-text text-transparent">
-							Pelican
-						</h1>
+						<h1 class="text-3xl font-black tracking-tight text-primary">Pelican</h1>
 					</a>
 				</div>
 				<div class="flex items-center gap-2">
-					<a href={resolve('/public')} class="text-xs font-medium text-muted-foreground hover:text-orange-500 transition-colors">Gallery</a>
-					<div class="flex items-center gap-1.5 px-2 py-1 bg-orange-500/10 border border-orange-500/20">
-						<CircleAlert class="h-3 w-3 text-orange-600 dark:text-orange-400" />
-						<span class="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wider">Public Environment</span>
-					</div>
+					<a href={resolve('/public')} class="text-xs font-medium text-muted-foreground hover:text-primary transition-colors">Gallery</a>
 				</div>
 			</header>
 
@@ -104,13 +97,13 @@
 							? 'w-0 opacity-0'
 							: 'w-1/3 opacity-100'}"
 						style="direction: rtl;">
-						<div class="space-y-3 p-3 min-w-0" style="direction: ltr;">
+						<div class="space-y-3 px-3 pb-3 min-w-0" style="direction: ltr;">
 							<!-- Prompt Section (includes images) -->
 							<PromptInput onsubmit={() => generate(data.user.id)} />
 
 							<div class="pt-1">
 								<Button
-									class="w-full bg-linear-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold h-9 text-sm"
+									class="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-9 text-sm"
 									disabled={app.isGenerating}
 									onclick={() => generate(data.user.id)}>
 									{#if app.isGenerating}
@@ -153,49 +146,45 @@
 						</div>
 					</div>
 
-					<!-- Preview (always 50%) -->
-					<!-- {p.showRawOutput.current
-							? 'w-1/3'
-							: 'w-2/3'} -->
-					<div class="shrink transition-all duration-200 {p.showRawOutput.current && app.currentGeneration?.id ? 'w-1/2' : 'w-2/3'}">
-						<div class="h-fit flex flex-col gap-2 pt-3">
-							<div class="flex items-center justify-between">
-								<h2 class="text-sm font-bold text-foreground">Preview</h2>
-								<div class="flex items-center gap-4">
-									{#if app.currentGeneration?.format === 'ascii'}
-										<div class="flex items-center gap-2">
-											<Label for="ascii-fg" class="text-xs font-medium text-foreground">FG</Label>
-											<input
-												id="ascii-fg"
-												type="color"
-												bind:value={p.asciiFgColor.current}
-												class="w-6 h-6 cursor-pointer border-0 p-0 bg-transparent" />
-											<Label for="ascii-bg" class="text-xs font-medium text-foreground">BG</Label>
-											<input
-												id="ascii-bg"
-												type="color"
-												bind:value={p.asciiBgColor.current}
-												class="w-6 h-6 cursor-pointer border-0 p-0 bg-transparent" />
-										</div>
-									{/if}
-									{#if !app.isGenerating && app.currentGeneration?.steps?.some((s) => s.rawOutput)}
-										<Button
-											variant="outline"
-											size="sm"
-											class="h-6 text-xs px-2"
-											onclick={() => (app.isStreaming ? app.stopStream() : app.simulateStream())}>
-											{app.isStreaming ? 'Stop' : 'Stream'}
-										</Button>
-									{/if}
-									{#if app.currentGeneration.id}
-										<div class="flex items-center gap-2">
-											<Label for="show-raw" class="text-xs font-medium text-foreground">Show Raw</Label>
-											<Switch id="show-raw" bind:checked={p.showRawOutput.current} />
-										</div>
-									{/if}
-								</div>
+					<!-- Preview -->
+					<div class="transition-all duration-200 flex flex-col {p.showRawOutput.current && app.currentGeneration?.id ? 'w-1/2' : 'w-2/3'}">
+						<div class="flex items-center justify-between h-6 shrink-0">
+							<h2 class="text-sm font-bold text-foreground m-0">Preview</h2>
+							<div class="flex items-center gap-4">
+								{#if app.currentGeneration?.format === 'ascii'}
+									<div class="flex items-center gap-2">
+										<Label for="ascii-fg" class="text-xs font-medium text-foreground">FG</Label>
+										<input
+											id="ascii-fg"
+											type="color"
+											bind:value={p.asciiFgColor.current}
+											class="w-6 h-6 cursor-pointer border-0 p-0 bg-transparent" />
+										<Label for="ascii-bg" class="text-xs font-medium text-foreground">BG</Label>
+										<input
+											id="ascii-bg"
+											type="color"
+											bind:value={p.asciiBgColor.current}
+											class="w-6 h-6 cursor-pointer border-0 p-0 bg-transparent" />
+									</div>
+								{/if}
+								{#if !app.isGenerating && app.currentGeneration?.steps?.some((s) => s.rawOutput)}
+									<Button
+										variant="outline"
+										class="h-fit text-xs px-1 py-0"
+										onclick={() => (app.isStreaming ? app.stopStream() : app.simulateStream())}>
+										{app.isStreaming ? 'Stop' : 'Stream'}
+									</Button>
+								{/if}
+								{#if app.currentGeneration.id}
+									<div class="flex items-center gap-2">
+										<Label for="show-raw" class="text-xs font-medium text-foreground">Show Raw</Label>
+										<Switch id="show-raw" bind:checked={p.showRawOutput.current} />
+									</div>
+								{/if}
 							</div>
-							<div class="flex-1 flex flex-col h-fit gap-3">
+						</div>
+						<div class="flex-1 overflow-auto mt-2">
+							<div class="flex flex-col gap-3">
 								<ArtifactPreview />
 								<StepsHistory />
 							</div>

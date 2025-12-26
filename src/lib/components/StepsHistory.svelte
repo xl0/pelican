@@ -17,12 +17,12 @@
 				<div class="flex flex-col gap-1">
 					{#each step.artifacts ?? [] as artifact, artIdx}
 						<button
-							class="relative h-16 border overflow-hidden transition-all hover:ring-1 hover:ring-orange-500 focus:outline-none {isStepSelected(
+							class="relative h-16 border overflow-hidden transition-all hover:ring-1 hover:ring-primary focus:outline-none {isStepSelected(
 								stepIdx
 							) &&
 							(app.selectedArtifactIndex === artIdx ||
 								(app.selectedArtifactIndex === undefined && artIdx === (step.artifacts?.length ?? 1) - 1))
-								? 'ring-2 ring-orange-500 border-orange-500'
+								? 'ring-2 ring-primary border-primary'
 								: 'border-border'}"
 							style="aspect-ratio: {app.currentGeneration.width} / {app.currentGeneration.height};"
 							onclick={() => {
@@ -31,7 +31,7 @@
 							}}>
 							{#if artifact.body}
 								{#if app.currentGeneration.format === 'svg'}
-									<div class="w-full h-full [&>svg]:w-full [&>svg]:h-full flex items-center justify-center bg-white pointer-events-none">
+									<div class="w-full h-full [&>svg]:w-full [&>svg]:h-full flex items-center justify-center bg-card pointer-events-none">
 										{@html artifact.body}
 									</div>
 								{:else}
@@ -49,8 +49,8 @@
 								<div class="w-full h-full bg-muted animate-pulse"></div>
 							{/if}
 							<span
-								class="absolute inset-0 flex items-center justify-center text-white text-2xl font-bold drop-shadow-lg pointer-events-none select-none opacity-40"
-								style="text-shadow: 0 0 4px rgba(0,0,0,1);">
+								class="absolute inset-0 flex items-center justify-center text-white text-2xl font-bold pointer-events-none select-none opacity-40"
+								style="text-shadow: 0 0 4px black;">
 								{stepIdx + 1}
 							</span>
 						</button>

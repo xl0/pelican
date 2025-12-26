@@ -88,13 +88,13 @@
 			</div>
 		</div>
 		{#if gen.maxSteps > 10}
-			<p class="text-[10px] text-orange-500 font-medium leading-tight">That's a lot of steps</p>
+			<p class="text-tiny text-primary font-medium leading-tight">That's a lot of steps</p>
 		{/if}
 		{#if gen.maxSteps > 50}
-			<p class="text-[10px] text-orange-500 font-medium leading-tight">No, seriously, that's too much!</p>
+			<p class="text-tiny text-primary font-medium leading-tight">No, seriously, that's too much!</p>
 		{/if}
 		{#if gen.maxSteps > 100}
-			<p class="text-[10px] text-orange-500 font-medium leading-tight">Hey I'll do it, it's your tokens.</p>
+			<p class="text-tiny text-primary font-medium leading-tight">Hey I'll do it, it's your tokens.</p>
 		{/if}
 	</div>
 {/if}

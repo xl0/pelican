@@ -61,8 +61,8 @@
 	<div class="shrink-0">
 		<div
 			class="text-xs font-bold uppercase tracking-wide px-2 py-1 mb-1 {role === 'user'
-				? 'text-blue-600 bg-blue-500/10'
-				: 'text-green-600 bg-green-500/10'}">
+				? 'text-user bg-user-bg'
+				: 'text-assistant bg-assistant-bg'}">
 			{label}
 		</div>
 		<div class="group relative border border-border overflow-hidden">
@@ -84,9 +84,9 @@
 	{/if}
 {/snippet}
 
-<div class="raw-output flex-1 h-0 flex flex-col gap-3">
+<div class="raw-output flex-1 h-0 flex flex-col gap-2">
 	<!-- Controls -->
-	<div class="flex items-center justify-end gap-2 shrink-0 px-1">
+	<div class="flex items-center justify-end gap-2 shrink-0 px-1 min-h-6">
 		<Label for="show-all-steps" class="text-xs font-medium text-muted-foreground">All Steps</Label>
 		<Switch id="show-all-steps" bind:checked={p.showAllSteps.current} />
 	</div>
@@ -98,19 +98,12 @@
 				{@const isSelected = i === selectedIndex}
 				{@const prev = i > 0 ? steps[i - 1] : undefined}
 				{@const prevRenderedUrl = getStepRenderedUrl(prev)}
-				<div
-					id="step-{i}"
-					class="flex flex-col gap-2 p-2 border shrink-0 {isSelected ? 'border-orange-500 bg-orange-500/5' : 'border-border'}">
+				<div id="step-{i}" class="flex flex-col gap-2 p-2 border shrink-0 {isSelected ? 'border-primary bg-primary/5' : 'border-border'}">
 					<div class="text-xs font-bold text-foreground px-2">Step {i + 1}</div>
-
-					<!-- For refinement steps, show previous Assistant output -->
-					<!-- {#if i > 0 && prev?.rawOutput}
-					{@render messageBlock('assistant', `Assistant (Step ${i})`, prev.rawOutput)}
-				{/if} -->
 
 					<!-- User message -->
 					<div class="shrink-0">
-						<div class="text-xs font-bold uppercase tracking-wide px-2 py-1 mb-1 text-blue-600 bg-blue-500/10">User</div>
+						<div class="text-xs font-bold uppercase tracking-wide px-2 py-1 mb-1 text-user bg-user-bg">User</div>
 
 						<div class="flex items-center gap-2 mt-1">
 							{#if mappedInputImages.length > 0}
@@ -152,9 +145,7 @@
 
 				<!-- User message -->
 				<div class="shrink-0">
-					<div class="text-xs font-bold uppercase tracking-wide px-2 py-1 mb-1 text-blue-600 bg-blue-500/10">
-						User
-					</div>
+					<div class="text-xs font-bold uppercase tracking-wide px-2 py-1 mb-1 text-user bg-user-bg">User</div>
 					{#if isRefinement && currentStep.renderedPrompt}
 						<div class="group relative border border-border overflow-hidden mt-1">
 							<CopyButton text={currentStep.renderedPrompt} class="absolute top-1 right-1 opacity-0 group-hover:opacity-100 z-10" />

@@ -31,12 +31,12 @@
 	<div class="border-t border-border pt-3 mt-3">
 		<div class="flex items-center justify-between py-1.5 px-2 bg-muted">
 			<div class="flex items-center gap-2">
-				<DollarSign class="h-3 w-3 text-green-600 dark:text-green-500" />
+				<DollarSign class="h-3 w-3 text-success" />
 				<span class="text-xs font-semibold text-foreground">Project Cost</span>
 			</div>
 			<div class="flex items-center gap-3 text-xs">
 				<span class="text-muted-foreground">{formatTokens(totalInputTokens)}→{formatTokens(totalOutputTokens)}</span>
-				<span class="font-bold text-green-600 dark:text-green-500">{formatCost(totalCost)}</span>
+				<span class="font-bold text-success">{formatCost(totalCost)}</span>
 			</div>
 		</div>
 	</div>
