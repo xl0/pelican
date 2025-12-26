@@ -11,20 +11,20 @@
 </script>
 
 {#if app.currentGeneration?.steps?.length}
-	<div class="flex gap-3 overflow-x-auto pb-2 border-t border-border pt-2">
+	<div class="flex gap-3 overflow-x-auto pb-2 border-border pt-2 pl-0.5">
 		{#each app.currentGeneration.steps as step, stepIdx}
 			<div class="flex flex-col gap-1 shrink-0">
-				<span class="text-[10px] font-bold text-muted-foreground text-center">Step {stepIdx + 1}</span>
 				<div class="flex flex-col gap-1">
 					{#each step.artifacts ?? [] as artifact, artIdx}
 						<button
-							class="relative w-16 h-16 border overflow-hidden transition-all hover:ring-1 hover:ring-orange-500 focus:outline-none {isStepSelected(
+							class="relative h-16 border overflow-hidden transition-all hover:ring-1 hover:ring-orange-500 focus:outline-none {isStepSelected(
 								stepIdx
 							) &&
 							(app.selectedArtifactIndex === artIdx ||
 								(app.selectedArtifactIndex === undefined && artIdx === (step.artifacts?.length ?? 1) - 1))
 								? 'ring-2 ring-orange-500 border-orange-500'
 								: 'border-border'}"
+							style="aspect-ratio: {app.currentGeneration.width} / {app.currentGeneration.height};"
 							onclick={() => {
 								app.selectedStepIndex = stepIdx;
 								app.selectedArtifactIndex = artIdx;
@@ -42,15 +42,16 @@
 											cols={app.currentGeneration.width}
 											frame={true}
 											margin={1}
-											class="w-full h-full"
-											 />
+											class="w-full h-full" />
 									</div>
 								{/if}
 							{:else}
 								<div class="w-full h-full bg-muted animate-pulse"></div>
 							{/if}
-							<span class="absolute bottom-0 right-0 bg-black/70 text-white text-[8px] px-0.5 font-medium">
-								{artIdx + 1}
+							<span
+								class="absolute inset-0 flex items-center justify-center text-white text-2xl font-bold drop-shadow-lg pointer-events-none select-none opacity-40"
+								style="text-shadow: 0 0 4px rgba(0,0,0,1);">
+								{stepIdx + 1}
 							</span>
 						</button>
 					{/each}

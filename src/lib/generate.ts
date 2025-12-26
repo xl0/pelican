@@ -128,6 +128,7 @@ export async function generate(userId: string): Promise<GenerateResult> {
 			sendFullHistory: gen.sendFullHistory
 		});
 		generationId = dbGen.id;
+		gen.id = generationId;
 		debug('Created generation', { generationId });
 
 		// 3. Collect input image parts for LLM (URL for existing, Uint8Array for new)

@@ -1,9 +1,8 @@
 <script lang="ts">
 	import { app } from '$lib/appstate.svelte';
+	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
-	import { Input } from '$lib/components/ui/input';
-	import { Slider } from '$lib/components/ui/slider';
 	import { Switch } from '$lib/components/ui/switch';
 
 	const gen = $derived(app.currentGeneration);
@@ -17,65 +16,85 @@
 	}
 
 	function toggleFullHistory() {
-		if (gen) gen.sendFullHistory = !gen.sendFullHistory
+		if (gen) gen.sendFullHistory = !gen.sendFullHistory;
 	}
 </script>
 
 {#if gen}
 	<div class="space-y-3">
-		<div class="space-y-2">
-			<Label for="format" class="text-xs font-semibold text-foreground">Output Format</Label>
-			<Select type="single" value={gen.format} onValueChange={handleFormatChange}>
-				<SelectTrigger class="border-border h-8 text-sm">
-					{formatLabel}
-				</SelectTrigger>
-				<SelectContent>
-					<SelectItem value="svg">SVG Vector</SelectItem>
-					<SelectItem value="ascii">ASCII Art</SelectItem>
-				</SelectContent>
-			</Select>
+		<!-- Row 1: Format and Size -->
+		<div class="flex gap-3 items-end">
+			<div class="w-1/3 space-y-1">
+				<Label for="format" class="text-xs font-semibold text-foreground">Format</Label>
+				<Select type="single" value={gen.format} onValueChange={handleFormatChange}>
+					<SelectTrigger class="border-border h-8 text-sm">
+						{formatLabel}
+					</SelectTrigger>
+					<SelectContent>
+						<SelectItem value="svg">SVG</SelectItem>
+						<SelectItem value="ascii">ASCII</SelectItem>
+					</SelectContent>
+				</Select>
+			</div>
+
+			<div class="flex-1">
+				{#if gen.format === 'svg'}
+					<div class="flex gap-2">
+						<div class="space-y-1 flex-1">
+							<Label for="width" class="text-xs font-semibold text-foreground">Width</Label>
+							<Input type="number" id="width" bind:value={gen.width} min={100} max={2000} class="h-8 text-xs" />
+						</div>
+						<div class="space-y-1 flex-1">
+							<Label for="height" class="text-xs font-semibold text-foreground">Height</Label>
+							<Input type="number" id="height" bind:value={gen.height} min={100} max={2000} class="h-8 text-xs" />
+						</div>
+					</div>
+				{:else}
+					<div class="flex gap-2">
+						<div class="space-y-1 flex-1">
+							<Label for="ascii-width" class="text-xs font-semibold text-foreground">Width (ch)</Label>
+							<Input type="number" id="ascii-width" bind:value={gen.width} min={20} max={200} class="h-8 text-xs" />
+						</div>
+						<div class="space-y-1 flex-1">
+							<Label for="ascii-height" class="text-xs font-semibold text-foreground">Height (ln)</Label>
+							<Input type="number" id="ascii-height" bind:value={gen.height} min={10} max={100} class="h-8 text-xs" />
+						</div>
+					</div>
+				{/if}
+			</div>
 		</div>
 
-		{#if gen.format === 'svg'}
-			<div class="grid grid-cols-2 gap-2">
-				<div class="space-y-1">
-					<Label for="width" class="text-xs font-semibold text-foreground">Width</Label>
-					<Input type="number" id="width" bind:value={gen.width} min={100} max={2000} class="h-7 text-xs" />
-				</div>
-				<div class="space-y-1">
-					<Label for="height" class="text-xs font-semibold text-foreground">Height</Label>
-					<Input type="number" id="height" bind:value={gen.height} min={100} max={2000} class="h-7 text-xs" />
+		<!-- Row 2: Steps and History -->
+		<div class="flex items-end gap-3">
+			<div class="w-24 space-y-1 shrink-0">
+				<Label for="steps" class="text-xs font-semibold text-foreground">Steps</Label>
+				<Input type="number" id="steps" bind:value={gen.maxSteps} min={1} max={20} class="h-8 text-xs" />
+			</div>
+
+			<div class="flex-1 flex flex-col justify-center gap-1 min-w-0">
+				<div class="flex items-center justify-between gap-2 h-8">
+					<Label
+						for="full-history"
+						class="text-xs font-semibold text-foreground truncate"
+						title={sendFullHistory ? 'Sending all history' : 'Sending first and last step only'}>
+						{sendFullHistory ? 'Send all history' : 'Send first and last step'}
+					</Label>
+					{#if gen.maxSteps < 3}
+						<Switch id="full-history" title="We always send first and last step" checked={false} disabled />
+					{:else}
+						<Switch id="full-history" checked={sendFullHistory} onCheckedChange={toggleFullHistory} disabled={gen.maxSteps < 3} />
+					{/if}
 				</div>
 			</div>
-		{:else}
-			<div class="grid grid-cols-2 gap-2">
-				<div class="space-y-1">
-					<Label for="ascii-width" class="text-xs font-semibold text-foreground">Width (chars)</Label>
-					<Input type="number" id="ascii-width" bind:value={gen.width} min={20} max={200} class="h-7 text-xs" />
-				</div>
-				<div class="space-y-1">
-					<Label for="ascii-height" class="text-xs font-semibold text-foreground">Height (lines)</Label>
-					<Input type="number" id="ascii-height" bind:value={gen.height} min={10} max={100} class="h-7 text-xs" />
-				</div>
-			</div>
+		</div>
+		{#if gen.maxSteps > 10}
+			<p class="text-[10px] text-orange-500 font-medium leading-tight">That's a lot of steps</p>
 		{/if}
-
-		<div class="space-y-2">
-			<div class="flex items-center justify-between">
-				<Label for="steps" class="text-xs font-semibold text-foreground">Refinement Steps: {gen.maxSteps}</Label>
-			</div>
-			<Slider type="single" id="steps" min={1} max={5} step={1} bind:value={gen.maxSteps} />
-		</div>
-
-		<div class="flex items-center justify-between">
-			<Label for="full-history" class="text-xs font-semibold text-foreground">
-				{sendFullHistory ? 'Sending all previous steps for context (more tokens)' : 'Sending only last step (faster, fewer tokens)'}
-			</Label>
-			{#if gen.maxSteps < 3}
-				<Switch id="full-history" checked={false} disabled />
-			{:else}
-				<Switch id="full-history" checked={sendFullHistory} onCheckedChange={toggleFullHistory} disabled={gen.maxSteps < 3} />
-			{/if}
-		</div>
+		{#if gen.maxSteps > 50}
+			<p class="text-[10px] text-orange-500 font-medium leading-tight">No, seriously, that's too much!</p>
+		{/if}
+		{#if gen.maxSteps > 100}
+			<p class="text-[10px] text-orange-500 font-medium leading-tight">Hey I'll do it, it's your tokens.</p>
+		{/if}
 	</div>
 {/if}

@@ -56,8 +56,15 @@
 				</Select>
 			</div>
 
-			{#if selectedProvider !== 'custom'}
-				<div class="space-y-1.5">
+			<div class="space-y-1.5">
+				{#if selectedProvider === 'custom'}
+					<Label for="custom-model-id" class="text-xs font-semibold text-slate-700 dark:text-slate-300">Model ID</Label>
+					<Input
+						id="custom-model-id"
+						bind:value={gen.model}
+						placeholder="e.g. my-model"
+						class="border-slate-300 dark:border-slate-700 h-8 text-sm" />
+				{:else}
 					<Label for="model-select" class="text-xs font-semibold text-slate-700 dark:text-slate-300">Model</Label>
 					<Select type="single" value={gen.model} onValueChange={handleModelChange}>
 						<SelectTrigger class="border-slate-300 dark:border-slate-700 h-8 text-sm">
@@ -70,15 +77,15 @@
 							<SelectItem value="custom">Custom...</SelectItem>
 						</SelectContent>
 					</Select>
-				</div>
-			{/if}
+				{/if}
+			</div>
 		</div>
 
-		{#if selectedModel === 'custom' || selectedProvider === 'custom'}
+		{#if selectedModel === 'custom' && selectedProvider !== 'custom'}
 			<div class="space-y-1.5">
-				<Label for="custom-model-id" class="text-xs font-semibold text-slate-700 dark:text-slate-300">Custom Model ID</Label>
+				<Label for="custom-model-id-override" class="text-xs font-semibold text-slate-700 dark:text-slate-300">Custom Model ID</Label>
 				<Input
-					id="custom-model-id"
+					id="custom-model-id-override"
 					bind:value={gen.model}
 					placeholder="e.g. my-finetuned-model"
 					class="border-slate-300 dark:border-slate-700 h-8 text-sm" />

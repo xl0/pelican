@@ -77,8 +77,8 @@
 <Toaster richColors={false} theme="light" />
 
 {#if !isPublic}
-	<div class="min-h-screen bg-background p-3 font-sans">
-		<div class="mx-auto max-w-7xl space-y-3">
+	<div class="fixed inset-0 bg-background p-3 font-sans overflow-hidden flex flex-col">
+		<div class="mx-auto w-full max-w-7xl gap-3 flex flex-col flex-1 min-h-0">
 			<header class="flex items-center justify-between pb-3 border-b border-border">
 				<div>
 					<a href={resolve('/')}>
@@ -101,15 +101,30 @@
 				<div class="flex flex-1 min-h-0">
 					<!-- Controls (shown when not showRaw) -->
 					<div
-						class="border-r border-border pr-3 overflow-hidden transition-all duration-200 {p.showRawOutput.current
+						class="pr-3 overflow-y-auto transition-all duration-200 {p.showRawOutput.current && app.currentGeneration.id
 							? 'w-0 opacity-0'
-							: 'w-1/2 opacity-100'}">
+							: 'w-1/3 opacity-100'}">
 						<div class="space-y-3 p-3 min-w-0">
 							<!-- Prompt Section -->
-							<PromptInput />
+							<PromptInput onsubmit={() => generate(data.user.id)} />
 
 							<!-- Reference Images -->
 							<InputImagesPreview />
+
+							<div class="pt-3">
+								<Button
+									class="w-full bg-linear-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold h-9 text-sm"
+									disabled={app.isGenerating}
+									onclick={() => generate(data.user.id)}>
+									{#if app.isGenerating}
+										<WandSparkles class="mr-2 h-4 w-4 animate-spin" />
+										Generating...
+									{:else}
+										<WandSparkles class="mr-2 h-4 w-4" />
+										Generate
+									{/if}
+								</Button>
+							</div>
 
 							<Separator />
 
@@ -136,30 +151,18 @@
 								</Collapsible.Content>
 							</Collapsible.Root>
 
-							<div class="pt-3 border-t border-border">
-								<Button
-									class="w-full bg-linear-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold h-9 text-sm"
-									disabled={app.isGenerating}
-									onclick={() => generate(data.user.id)}>
-									{#if app.isGenerating}
-										<WandSparkles class="mr-2 h-4 w-4 animate-spin" />
-										Generating...
-									{:else}
-										<WandSparkles class="mr-2 h-4 w-4" />
-										Generate
-									{/if}
-								</Button>
-							</div>
-
 							<!-- Cost Display -->
 							<!-- <CostDisplay /> -->
 						</div>
 					</div>
 
 					<!-- Preview (always 50%) -->
-					<div class="w-1/2 shrink-0">
-						<div class="h-fit flex flex-col p-3">
-							<div class="flex items-center justify-between pb-2 border-b border-border">
+					<!-- {p.showRawOutput.current
+							? 'w-1/3'
+							: 'w-2/3'} -->
+					<div class="shrink {p.showRawOutput.current && app.currentGeneration?.id ? 'w-1/3' : 'w-2/3'}">
+						<div class="h-fit flex flex-col px-1">
+							<div class="flex items-center justify-between">
 								<h2 class="text-sm font-bold text-foreground">Preview</h2>
 								<div class="flex items-center gap-4">
 									{#if app.currentGeneration?.format === 'ascii'}
@@ -178,7 +181,7 @@
 												class="w-6 h-6 cursor-pointer border-0 p-0 bg-transparent" />
 										</div>
 									{/if}
-									{#if app.currentGeneration?.steps?.some((s) => s.rawOutput)}
+									{#if !app.isGenerating && app.currentGeneration?.steps?.some((s) => s.rawOutput)}
 										<Button
 											variant="outline"
 											size="sm"
@@ -187,10 +190,12 @@
 											{app.isStreaming ? 'Stop' : 'Stream'}
 										</Button>
 									{/if}
-									<div class="flex items-center gap-2">
-										<Label for="show-raw" class="text-xs font-medium text-foreground">Show Raw</Label>
-										<Switch id="show-raw" bind:checked={p.showRawOutput.current} />
-									</div>
+									{#if app.currentGeneration.id}
+										<div class="flex items-center gap-2">
+											<Label for="show-raw" class="text-xs font-medium text-foreground">Show Raw</Label>
+											<Switch id="show-raw" bind:checked={p.showRawOutput.current} />
+										</div>
+									{/if}
 								</div>
 							</div>
 							<div class="flex-1 flex flex-col h-fit gap-3 pt-3">
@@ -202,8 +207,9 @@
 
 					<!-- Raw Output (shown when showRaw) -->
 					<div
-						class="border-l border-border pl-3 overflow-hidden transition-all duration-200 flex flex-col {p.showRawOutput.current
-							? 'w-1/2 opacity-100'
+						class="border-l border-border pl-3 overflow-hidden transition-all duration-200 flex flex-col {p.showRawOutput.current &&
+						app.currentGeneration?.id
+							? 'w-2/3 opacity-100'
 							: 'w-0 opacity-0 hidden'}">
 						<div class="flex-1 min-h-0 flex flex-col p-3 min-w-0">
 							<RawOutput />
