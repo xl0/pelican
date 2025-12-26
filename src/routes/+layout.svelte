@@ -5,7 +5,6 @@
 	import { page } from '$app/state';
 	import { app } from '$lib/appstate.svelte';
 	import ArtifactPreview from '$lib/components/ArtifactPreview.svelte';
-	import InputImagesPreview from '$lib/components/InputImagesPreview.svelte';
 	import ModelSettings from '$lib/components/ModelSettings.svelte';
 	import OutputSettings from '$lib/components/OutputSettings.svelte';
 	import PromptInput from '$lib/components/PromptInput.svelte';
@@ -98,20 +97,18 @@
 			</header>
 
 			{#if app.currentGeneration}
-				<div class="flex flex-1 min-h-0">
+				<div class="flex flex-1 min-h-0 gap-1">
 					<!-- Controls (shown when not showRaw) -->
 					<div
-						class="pr-3 overflow-y-auto transition-all duration-200 {p.showRawOutput.current && app.currentGeneration.id
+						class="overflow-y-auto transition-all duration-200 {p.showRawOutput.current && app.currentGeneration.id
 							? 'w-0 opacity-0'
-							: 'w-1/3 opacity-100'}">
-						<div class="space-y-3 p-3 min-w-0">
-							<!-- Prompt Section -->
+							: 'w-1/3 opacity-100'}"
+						style="direction: rtl;">
+						<div class="space-y-3 p-3 min-w-0" style="direction: ltr;">
+							<!-- Prompt Section (includes images) -->
 							<PromptInput onsubmit={() => generate(data.user.id)} />
 
-							<!-- Reference Images -->
-							<InputImagesPreview />
-
-							<div class="pt-3">
+							<div class="pt-1">
 								<Button
 									class="w-full bg-linear-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-bold h-9 text-sm"
 									disabled={app.isGenerating}
@@ -160,8 +157,8 @@
 					<!-- {p.showRawOutput.current
 							? 'w-1/3'
 							: 'w-2/3'} -->
-					<div class="shrink {p.showRawOutput.current && app.currentGeneration?.id ? 'w-1/3' : 'w-2/3'}">
-						<div class="h-fit flex flex-col px-1">
+					<div class="shrink transition-all duration-200 {p.showRawOutput.current && app.currentGeneration?.id ? 'w-1/2' : 'w-2/3'}">
+						<div class="h-fit flex flex-col gap-2 pt-3">
 							<div class="flex items-center justify-between">
 								<h2 class="text-sm font-bold text-foreground">Preview</h2>
 								<div class="flex items-center gap-4">
@@ -198,7 +195,7 @@
 									{/if}
 								</div>
 							</div>
-							<div class="flex-1 flex flex-col h-fit gap-3 pt-3">
+							<div class="flex-1 flex flex-col h-fit gap-3">
 								<ArtifactPreview />
 								<StepsHistory />
 							</div>
@@ -207,11 +204,10 @@
 
 					<!-- Raw Output (shown when showRaw) -->
 					<div
-						class="border-l border-border pl-3 overflow-hidden transition-all duration-200 flex flex-col {p.showRawOutput.current &&
-						app.currentGeneration?.id
-							? 'w-2/3 opacity-100'
+						class="overflow-hidden transition-all duration-200 flex flex-col {p.showRawOutput.current && app.currentGeneration?.id
+							? 'w-1/2 opacity-100'
 							: 'w-0 opacity-0 hidden'}">
-						<div class="flex-1 min-h-0 flex flex-col p-3 min-w-0">
+						<div class="flex-1 min-h-0 flex flex-col min-w-0">
 							<RawOutput />
 						</div>
 					</div>
