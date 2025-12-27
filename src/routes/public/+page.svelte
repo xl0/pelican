@@ -1,13 +1,13 @@
 <script lang="ts">
-	import { getPublicGenerations } from '$lib/data.remote';
-	import { formatDistanceToNow } from 'date-fns';
-	import * as Card from '$lib/components/ui/card';
-	import { Badge } from '$lib/components/ui/badge';
 	import { AspectRatio } from '$lib/components/ui/aspect-ratio';
-	import { Skeleton } from '$lib/components/ui/skeleton';
 	import { Button } from '$lib/components/ui/button';
+	import * as Card from '$lib/components/ui/card';
+	import { Skeleton } from '$lib/components/ui/skeleton';
+	import { getPublicGenerations } from '$lib/data.remote';
 	import { ArrowLeft } from '@lucide/svelte';
+import { formatDistanceToNow } from 'date-fns';
 	import { AsciiArt } from 'svelte-asciiart';
+	import { MediaQuery } from 'svelte/reactivity';
 
 	const generations = getPublicGenerations({ limit: 50 });
 
@@ -15,6 +15,19 @@
 	function getArtifactBody(gen: Awaited<typeof generations>[number]): string | null {
 		return gen.steps?.[0]?.artifacts?.[0]?.body;
 	}
+
+	// Distribute items into N columns round-robin for left-to-right ordering
+	function distributeToColumns<T>(items: T[], numColumns: number): T[][] {
+		const columns: T[][] = Array.from({ length: numColumns }, () => []);
+		items.forEach((item, i) => columns[i % numColumns].push(item));
+		return columns;
+	}
+
+	// Track column count based on viewport using Svelte's MediaQuery
+	const xl = new MediaQuery('min-width: 1280px');
+	const lg = new MediaQuery('min-width: 1024px');
+	const sm = new MediaQuery('min-width: 640px');
+	const columnCount = $derived(xl.current ? 5 : lg.current ? 4 : sm.current ? 3 : 2);
 </script>
 
 <svelte:head>
@@ -25,10 +38,10 @@
 <div class="min-h-screen bg-background">
 	<!-- Header -->
 	<header class="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
-		<div class="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
+		<div class="mx-auto max-w-7xl px-3 py-3 flex items-center justify-between">
 			<div>
-				<h1 class="text-3xl font-black tracking-tight text-primary">Gallery</h1>
-				<p class="text-sm text-muted-foreground">AI-generated SVG and ASCII artwork</p>
+				<h1 class="text-2xl font-black tracking-tight text-primary">Gallery</h1>
+				<p class="text-xs text-muted-foreground">AI-generated SVG and ASCII artwork</p>
 			</div>
 			<Button variant="outline" href="/">
 				<ArrowLeft class="h-4 w-4 mr-2" />
@@ -37,24 +50,19 @@
 		</div>
 	</header>
 
-	<main class="mx-auto max-w-7xl p-6">
+	<main class="mx-auto max-w-7xl px-3 py-4">
 		{#await generations}
-			<!-- Loading skeleton grid -->
-			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+			<!-- Loading skeleton -->
+			<div class="grid gap-4" style="grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));">
 				{#each Array(8) as _}
 					<Card.Root class="overflow-hidden">
-						<div class="p-4">
-							<AspectRatio ratio={1}>
-								<Skeleton class="w-full h-full" />
-							</AspectRatio>
+						<AspectRatio ratio={1} class="bg-muted">
+							<Skeleton class="w-full h-full" />
+						</AspectRatio>
+						<div class="p-2">
+							<Skeleton class="h-4 w-3/4 mb-2" />
+							<Skeleton class="h-3 w-full" />
 						</div>
-						<Card.Header class="pb-2">
-							<Skeleton class="h-4 w-3/4" />
-							<Skeleton class="h-3 w-full mt-2" />
-						</Card.Header>
-						<Card.Footer class="pt-0">
-							<Skeleton class="h-3 w-1/2" />
-						</Card.Footer>
 					</Card.Root>
 				{/each}
 			</div>
@@ -70,51 +78,37 @@
 					</Card.Footer>
 				</Card.Root>
 			{:else}
-				<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-					{#each gens as gen (gen.id)}
-						{@const body = getArtifactBody(gen)}
-						<a href="/{gen.id}" class="group h-full">
-							<Card.Root
-								class="h-full flex flex-col overflow-hidden transition-all duration-200 hover:border-primary/50 hover:shadow-lg hover:shadow-primary/10 group-hover:-translate-y-1">
-								<!-- Preview -->
-								<div class="p-4 bg-muted/50">
-									<AspectRatio ratio={1} class="rounded overflow-hidden bg-muted">
+				{@const columns = distributeToColumns(gens, columnCount)}
+				<div class="flex gap-4">
+					{#each columns as column}
+						<div class="flex-1 flex flex-col gap-4 w-20">
+							{#each column as gen (gen.id)}
+								{@const body = getArtifactBody(gen)}
+								<a href="/{gen.id}" class="group block">
+									<Card.Root
+										class="overflow-hidden transition-all hover:border-primary/50 hover:shadow-lg group-hover:-translate-y-0.5 py-0 gap-2">
 										{#if body && gen.format === 'svg'}
-											<div class="w-full h-full [&>svg]:w-full [&>svg]:h-full transition-transform duration-200 group-hover:scale-105">
+											<div class="w-full [&>svg]:w-full [&>svg]:h-auto">
 												{@html body}
 											</div>
 										{:else if body && gen.format === 'ascii'}
-											<div class="w-full h-full bg-background text-foreground">
+											<div class="w-full bg-background text-foreground">
 												<AsciiArt text={body} />
 											</div>
 										{:else}
-											<div class="w-full h-full flex items-center justify-center">
+											<div class="w-full aspect-square flex items-center justify-center bg-muted">
 												<span class="text-muted-foreground text-sm">No preview</span>
 											</div>
 										{/if}
-									</AspectRatio>
-								</div>
-
-								<Card.Header class="pb-2 flex-1">
-									<div class="flex items-start justify-between gap-2">
-										<Card.Title class="text-base truncate group-hover:text-primary transition-colors">
-											{gen.title}
-										</Card.Title>
-										<Badge variant={gen.format === 'svg' ? 'default' : 'secondary'} class="shrink-0">
-											{gen.format.toUpperCase()}
-										</Badge>
-									</div>
-									<Card.Description class="line-clamp-2 text-xs min-h-[2.5em]">
-										{gen.prompt}
-									</Card.Description>
-								</Card.Header>
-
-								<Card.Footer class="pt-0 text-xs text-muted-foreground justify-between">
-									<span>{gen.width}×{gen.height}</span>
-									<span>{formatDistanceToNow(gen.createdAt, { addSuffix: true })}</span>
-								</Card.Footer>
-							</Card.Root>
-						</a>
+										<div class="p-2">
+											<p class="text-sm font-medium truncate group-hover:text-primary">{gen.title}</p>
+											<p class="text-xs text-muted-foreground truncate">{gen.prompt}</p>
+											<p class="text-xs text-muted-foreground mt-1">{formatDistanceToNow(gen.createdAt, { addSuffix: true })}</p>
+										</div>
+									</Card.Root>
+								</a>
+							{/each}
+						</div>
 					{/each}
 				</div>
 			{/if}

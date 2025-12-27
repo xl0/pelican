@@ -41,11 +41,11 @@
 
 {#if gen}
 	<div class="space-y-3">
-		<div class="grid grid-cols-2 gap-2">
-			<div class="space-y-1.5">
+		<div class="flex flex-wrap gap-2">
+			<div class="flex-1 min-w-[140px] space-y-1.5">
 				<Label for="provider-select" class="text-xs font-semibold text-foreground">Provider</Label>
 				<Select type="single" value={gen.provider} onValueChange={handleProviderChange}>
-					<SelectTrigger class="border-border h-8 text-sm">
+					<SelectTrigger class="w-full border-border">
 						{providerLabel(gen.provider)}
 					</SelectTrigger>
 					<SelectContent>
@@ -56,14 +56,14 @@
 				</Select>
 			</div>
 
-			<div class="space-y-1.5">
+			<div class="flex-1 min-w-[140px] space-y-1.5">
 				{#if selectedProvider === 'custom'}
 					<Label for="custom-model-id" class="text-xs font-semibold text-foreground">Model ID</Label>
-					<Input id="custom-model-id" bind:value={gen.model} placeholder="e.g. my-model" class="border-border h-8 text-sm" />
+					<Input id="custom-model-id" bind:value={gen.model} placeholder="e.g. my-model" class="border-border" />
 				{:else}
 					<Label for="model-select" class="text-xs font-semibold text-foreground">Model</Label>
 					<Select type="single" value={gen.model} onValueChange={handleModelChange}>
-						<SelectTrigger class="border-border h-8 text-sm">
+						<SelectTrigger class="w-full border-border">
 							{modelLabel}
 						</SelectTrigger>
 						<SelectContent>
@@ -80,11 +80,7 @@
 		{#if selectedModel === 'custom' && selectedProvider !== 'custom'}
 			<div class="space-y-1.5">
 				<Label for="custom-model-id-override" class="text-xs font-semibold text-foreground">Custom Model ID</Label>
-				<Input
-					id="custom-model-id-override"
-					bind:value={gen.model}
-					placeholder="e.g. my-finetuned-model"
-					class="border-border h-8 text-sm" />
+				<Input id="custom-model-id-override" bind:value={gen.model} placeholder="e.g. my-finetuned-model" class="border-border" />
 			</div>
 		{/if}
 
@@ -92,7 +88,7 @@
 			<Label for="endpoint" class="text-xs font-semibold text-foreground">
 				API Endpoint {#if selectedProvider === 'custom'}<span class="text-destructive">*</span>{/if}
 			</Label>
-			<Input id="endpoint" bind:value={gen.endpoint} placeholder={endpointPlaceholder} class="border-border h-8 text-sm" />
+			<Input id="endpoint" bind:value={gen.endpoint} placeholder={endpointPlaceholder} class="border-border" />
 		</div>
 
 		<div class="space-y-1.5">
@@ -121,13 +117,12 @@
 					id="api-key"
 					bind:value={p.apiKeys.current[gen.provider]}
 					placeholder={`Enter ${providerLabel(gen.provider)} API Key`}
-					class={cn('border-border h-8 text-sm', !showApiKey && 'security-disc')}
+					class={cn('border-border', !showApiKey && 'security-disc')}
 					autocomplete="off"
 					spellcheck="false" />
 				<Button
 					variant="outline"
 					size="icon"
-					class="h-8 w-8"
 					onclick={() => (showApiKey = !showApiKey)}
 					title={showApiKey ? 'Hide API key' : 'Show API key'}>
 					{#if showApiKey}
@@ -140,7 +135,6 @@
 				<Button
 					variant="outline"
 					size="icon"
-					class="h-8 w-8"
 					onclick={() => {
 						p.clearApikey(gen.provider);
 					}}

@@ -35,7 +35,7 @@
 </script>
 
 <div class="space-y-2">
-	<div class="flex items-center justify-between min-h-6">
+	<div class="flex items-center justify-between">
 		<Label for="prompt" class="text-sm font-bold text-foreground">Prompt</Label>
 		<input type="file" id="ref-image-input" class="hidden" onchange={handleFileSelect} accept="image/*" multiple />
 		<Button variant="ghost" size="sm" class="h-6 px-2 gap-1" onclick={() => document.getElementById('ref-image-input')?.click()}>

@@ -11,7 +11,7 @@
 </script>
 
 {#if app.currentGeneration?.steps?.length}
-	<div class="flex gap-3 overflow-x-auto pb-2 border-border pt-2 pl-0.5">
+	<div class="flex gap-3 overflow-x-auto pb-2 border-border pt-2 pl-0.5 shrink-0">
 		{#each app.currentGeneration.steps as step, stepIdx}
 			<div class="flex flex-col gap-1 shrink-0">
 				<div class="flex flex-col gap-1">

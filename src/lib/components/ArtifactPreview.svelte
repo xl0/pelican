@@ -81,7 +81,7 @@
 			<!-- svelte-ignore a11y_click_events_have_key_events -->
 			<!-- svelte-ignore a11y_no_static_element_interactions -->
 			<div
-				class="group flex items-center justify-center border border-border relative overflow-hidden [&>svg]:w-full [&>svg]:h-auto bg-muted/10 transition-colors {body &&
+				class="group grow shrink min-h-0 flex overflow-auto min-w-0 items-center justify-center border border-border relative bg-muted/10 transition-colors {body &&
 				!app.isGenerating
 					? 'cursor-zoom-in hover:bg-muted/20'
 					: ''}"
@@ -115,7 +115,10 @@
 						</div>
 					{/if}
 					{#if gen.format === 'svg'}
-						{@html body}
+
+						<div class="w-full h-full [&>svg]:w-full [&>svg]:h-full">
+							{@html body}
+						</div>
 					{/if}
 					<!-- Hidden trigger for zoom (applies to both formats since we generate blob for both) -->
 					{#if svgBlobUrl && !app.isGenerating}

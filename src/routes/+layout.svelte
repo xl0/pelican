@@ -76,12 +76,12 @@
 <Toaster richColors={false} theme="light" />
 
 {#if !isPublic}
-	<div class="fixed inset-0 bg-background p-3 font-sans overflow-hidden flex flex-col">
-		<div class="mx-auto w-full max-w-7xl gap-3 flex flex-col flex-1 min-h-0">
-			<header class="flex items-center justify-between pb-3 border-b border-border">
+	<div class="fixed inset-0 bg-background p-2 md:p-3 font-sans overflow-hidden flex flex-col">
+		<div class="mx-auto w-full max-w-7xl gap-2 md:gap-3 flex flex-col flex-1 min-h-0">
+			<header class="flex items-center justify-between pb-2 md:pb-3 border-b border-border">
 				<div>
 					<a href={resolve('/')}>
-						<h1 class="text-3xl font-black tracking-tight text-primary">Pelican</h1>
+						<h1 class="text-2xl md:text-3xl font-black tracking-tight text-primary">Pelican</h1>
 					</a>
 				</div>
 				<div class="flex items-center gap-2">
@@ -90,20 +90,72 @@
 			</header>
 
 			{#if app.currentGeneration}
-				<div class="flex flex-1 min-h-0 gap-1">
-					<!-- Controls (shown when not showRaw) -->
+				<!-- Mobile: stacked (preview on top, controls below). Desktop: side-by-side -->
+				<div class="flex flex-col md:flex-row flex-1 min-h-0 gap-2 md:gap-1">
+					<!-- Preview - Full width on mobile (hidden when showRaw), 2/3 or 1/2 on desktop -->
 					<div
-						class="overflow-y-auto transition-all duration-200 {p.showRawOutput.current && app.currentGeneration.id
-							? 'w-0 opacity-0'
-							: 'w-1/3 opacity-100'}"
+						class="order-1 md:order-2 flex md:flex-none transition-all duration-200 flex-col max-h-1/2 md:max-h-full min-h-[40vh] md:min-h-0 {p.showRawOutput
+							.current && app.currentGeneration?.id
+							? 'hidden md:flex md:w-1/2'
+							: 'md:w-2/3'}">
+						<div class="flex items-center justify-between h-6 shrink-0 px-1">
+							<h2 class="text-sm font-bold text-foreground m-0">Preview</h2>
+							<div class="flex items-center gap-2 md:gap-4">
+								{#if app.currentGeneration?.format === 'ascii'}
+									<div class="flex items-center gap-1 md:gap-2">
+										<Label for="ascii-fg" class="text-xs font-medium text-foreground">FG</Label>
+										<input
+											id="ascii-fg"
+											type="color"
+											bind:value={p.asciiFgColor.current}
+											class="w-6 h-6 cursor-pointer border-0 p-0 bg-transparent" />
+										<Label for="ascii-bg" class="text-xs font-medium text-foreground">BG</Label>
+										<input
+											id="ascii-bg"
+											type="color"
+											bind:value={p.asciiBgColor.current}
+											class="w-6 h-6 cursor-pointer border-0 p-0 bg-transparent" />
+									</div>
+								{/if}
+								{#if !app.isGenerating && app.currentGeneration?.steps?.some((s) => s.rawOutput)}
+									<Button
+										variant="outline"
+										class="h-fit text-xs px-1 py-0"
+										onclick={() => (app.isStreaming ? app.stopStream() : app.simulateStream())}>
+										{app.isStreaming ? 'Stop' : 'Stream'}
+									</Button>
+								{/if}
+								<!-- Show Raw toggle - only when raw is not active (toggle to enable) -->
+								{#if app.currentGeneration.id && !p.showRawOutput.current}
+									<div class="flex items-center gap-2">
+										<Label for="show-raw" class="text-xs font-medium text-foreground">Show Raw</Label>
+										<Switch id="show-raw" bind:checked={p.showRawOutput.current} />
+									</div>
+								{/if}
+							</div>
+						</div>
+						<div class="flex flex-col overflow-auto mt-2 h-full ">
+
+								<ArtifactPreview />
+								<StepsHistory />
+
+						</div>
+					</div>
+
+					<!-- Controls - Full width on mobile (hidden when showRaw), 1/3 on desktop (order-1) -->
+					<div
+						class="order-2 md:order-1 overflow-y-auto transition-all duration-200 flex-1 md:flex-none {p.showRawOutput.current &&
+						app.currentGeneration.id
+							? 'hidden md:block md:w-0 md:opacity-0'
+							: 'md:w-1/3 md:opacity-100'}"
 						style="direction: rtl;">
-						<div class="space-y-3 px-3 pb-3 min-w-0" style="direction: ltr;">
+						<div class="space-y-3 px-1 md:px-3 pb-3 min-w-0" style="direction: ltr;">
 							<!-- Prompt Section (includes images) -->
 							<PromptInput onsubmit={() => generate(data.user.id)} />
 
 							<div class="pt-1">
 								<Button
-									class="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold h-9 text-sm"
+									class="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm"
 									disabled={app.isGenerating}
 									onclick={() => generate(data.user.id)}>
 									{#if app.isGenerating}
@@ -121,7 +173,7 @@
 							<!-- Output Settings -->
 							<OutputSettings />
 
-							<Separator class="" />
+							<Separator />
 
 							<!-- ModelSettings -->
 							<ModelSettings />
@@ -146,56 +198,11 @@
 						</div>
 					</div>
 
-					<!-- Preview -->
-					<div class="transition-all duration-200 flex flex-col {p.showRawOutput.current && app.currentGeneration?.id ? 'w-1/2' : 'w-2/3'}">
-						<div class="flex items-center justify-between h-6 shrink-0">
-							<h2 class="text-sm font-bold text-foreground m-0">Preview</h2>
-							<div class="flex items-center gap-4">
-								{#if app.currentGeneration?.format === 'ascii'}
-									<div class="flex items-center gap-2">
-										<Label for="ascii-fg" class="text-xs font-medium text-foreground">FG</Label>
-										<input
-											id="ascii-fg"
-											type="color"
-											bind:value={p.asciiFgColor.current}
-											class="w-6 h-6 cursor-pointer border-0 p-0 bg-transparent" />
-										<Label for="ascii-bg" class="text-xs font-medium text-foreground">BG</Label>
-										<input
-											id="ascii-bg"
-											type="color"
-											bind:value={p.asciiBgColor.current}
-											class="w-6 h-6 cursor-pointer border-0 p-0 bg-transparent" />
-									</div>
-								{/if}
-								{#if !app.isGenerating && app.currentGeneration?.steps?.some((s) => s.rawOutput)}
-									<Button
-										variant="outline"
-										class="h-fit text-xs px-1 py-0"
-										onclick={() => (app.isStreaming ? app.stopStream() : app.simulateStream())}>
-										{app.isStreaming ? 'Stop' : 'Stream'}
-									</Button>
-								{/if}
-								{#if app.currentGeneration.id}
-									<div class="flex items-center gap-2">
-										<Label for="show-raw" class="text-xs font-medium text-foreground">Show Raw</Label>
-										<Switch id="show-raw" bind:checked={p.showRawOutput.current} />
-									</div>
-								{/if}
-							</div>
-						</div>
-						<div class="flex-1 overflow-auto mt-2">
-							<div class="flex flex-col gap-3">
-								<ArtifactPreview />
-								<StepsHistory />
-							</div>
-						</div>
-					</div>
-
-					<!-- Raw Output (shown when showRaw) -->
+					<!-- Raw Output - Full screen on mobile when active, 1/2 on desktop -->
 					<div
-						class="overflow-hidden transition-all duration-200 flex flex-col {p.showRawOutput.current && app.currentGeneration?.id
-							? 'w-1/2 opacity-100'
-							: 'w-0 opacity-0 hidden'}">
+						class="order-3 overflow-hidden transition-all duration-200 flex-col {p.showRawOutput.current && app.currentGeneration?.id
+							? 'flex flex-1 md:flex-none md:w-1/2 opacity-100'
+							: 'hidden md:flex w-0 opacity-0'}">
 						<div class="flex-1 min-h-0 flex flex-col min-w-0">
 							<RawOutput />
 						</div>

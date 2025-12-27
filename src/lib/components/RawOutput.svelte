@@ -41,16 +41,13 @@
 
 	$effect(() => {
 		if (p.showAllSteps.current && selectedIndex >= 0 && container) {
-			const el = document.getElementById(`step-${selectedIndex}`);
-			if (el) {
-				// Use manual scrolling to avoid bubbling to the window
-				// We need the relative position of the element to the container
-				// Making the container 'relative' ensures offsetTop works nicely if it's the offsetParent
-				// But to be safe with flex gaps, we can use simple substraction if offsetParent matches,
-				// or getBoundingClientRect.
-				const top = el.offsetTop;
-				container.scrollTo({ top, behavior: 'smooth' });
-			}
+			// Small delay to let DOM update after toggling showAllSteps
+			requestAnimationFrame(() => {
+				const el = document.getElementById(`step-${selectedIndex}`);
+				if (el) {
+					el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+				}
+			});
 		}
 	});
 
@@ -86,9 +83,15 @@
 
 <div class="raw-output flex-1 h-0 flex flex-col gap-2">
 	<!-- Controls -->
-	<div class="flex items-center justify-end gap-2 shrink-0 px-1 min-h-6">
-		<Label for="show-all-steps" class="text-xs font-medium text-muted-foreground">All Steps</Label>
-		<Switch id="show-all-steps" bind:checked={p.showAllSteps.current} />
+	<div class="flex flex-row-reverse md:flex-row items-center justify-between gap-2 shrink-0 px-1">
+		<div class="flex items-center gap-2">
+			<Label for="show-raw-output" class="text-xs font-medium text-foreground">Show Raw</Label>
+			<Switch id="show-raw-output" bind:checked={p.showRawOutput.current} />
+		</div>
+		<div class="flex items-center gap-2">
+			<Label for="show-all-steps" class="text-xs font-medium text-muted-foreground">All Steps</Label>
+			<Switch id="show-all-steps" bind:checked={p.showAllSteps.current} />
+		</div>
 	</div>
 
 	<div class="flex-1 overflow-auto relative flex flex-col gap-3 min-h-0" bind:this={container}>

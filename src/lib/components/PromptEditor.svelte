@@ -112,9 +112,9 @@
 </script>
 
 <div class={cn('space-y-1.5 prompt-editor', className)}>
-	<div class="flex items-center justify-between">
-		<Label class="text-xs font-semibold text-foreground">{title}</Label>
-		<div class="flex items-center gap-4">
+	<div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+		<Label class="text-xs font-semibold text-foreground whitespace-nowrap">{title}</Label>
+		<div class="flex items-center gap-4 justify-between grow">
 			<div class="flex items-center gap-1.5">
 				<Label class="text-tiny uppercase font-bold text-muted-foreground">Preview</Label>
 				<Switch bind:checked={showPreview} />
