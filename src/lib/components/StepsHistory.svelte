@@ -24,11 +24,11 @@
 								(app.selectedArtifactIndex === undefined && artIdx === (step.artifacts?.length ?? 1) - 1))
 								? 'ring-2 ring-primary border-primary'
 								: 'border-border'}"
-							style="aspect-ratio: {app.currentGeneration.width} / {app.currentGeneration.height};"
 							onclick={() => {
 								app.selectedStepIndex = stepIdx;
 								app.selectedArtifactIndex = artIdx;
 							}}>
+							<!-- style="aspect-ratio: {app.currentGeneration.width} / {app.currentGeneration.height};" -->
 							{#if artifact.body}
 								{#if app.currentGeneration.format === 'svg'}
 									<div class="w-full h-full [&>svg]:w-full [&>svg]:h-full flex items-center justify-center bg-card pointer-events-none">

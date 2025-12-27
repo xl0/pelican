@@ -28,10 +28,10 @@
 	let { data, children } = $props();
 
 	// Routes that bypass the main generation UI
-	const isPublic = $derived(page.route.id === '/public');
+	const isSpecialRoute = $derived(page.route.id === '/gallery' || page.route.id === '/history');
 
 	let generation = $derived.by(() => {
-		if (isPublic) return undefined;
+		if (isSpecialRoute) return undefined;
 		if (page.params.id) {
 			return getGeneration({ id: page.params.id });
 		}
@@ -39,7 +39,8 @@
 
 	// Initialize/update currentGeneration based on route
 	$effect(() => {
-		if (isPublic) return; // Don't touch currentGeneration on special routes
+		if (isSpecialRoute) return; // Don't touch currentGeneration on special routes
+
 
 		if (generation) {
 			// Loading an existing generation from DB
@@ -75,18 +76,38 @@
 
 <Toaster richColors={false} theme="light" />
 
-{#if !isPublic}
+{#if !isSpecialRoute}
 	<div class="fixed inset-0 bg-background p-2 md:p-3 font-sans overflow-hidden flex flex-col">
 		<div class="mx-auto w-full max-w-7xl gap-2 md:gap-3 flex flex-col flex-1 min-h-0">
-			<header class="flex items-center justify-between pb-2 md:pb-3 border-b border-border">
+			<header class="flex items-center justify-between pb-2 border-b border-border">
 				<div>
 					<a href={resolve('/')}>
 						<h1 class="text-2xl md:text-3xl font-black tracking-tight text-primary">Pelican</h1>
 					</a>
 				</div>
-				<div class="flex items-center gap-2">
-					<a href={resolve('/public')} class="text-xs font-medium text-muted-foreground hover:text-primary transition-colors">Gallery</a>
-				</div>
+				<nav class="flex items-center gap-4">
+					<a
+						href={resolve('/')}
+						class="text-sm font-medium {page.route.id === '/' || page.route.id === '/[id]'
+							? 'text-primary'
+							: 'text-muted-foreground hover:text-primary transition-colors'}">
+						Create
+					</a>
+					<a
+						href={resolve('/history')}
+						class="text-sm font-medium {page.route.id === '/history'
+							? 'text-primary'
+							: 'text-muted-foreground hover:text-primary transition-colors'}">
+						History
+					</a>
+					<a
+						href={resolve('/gallery')}
+						class="text-sm font-medium {page.route.id === '/gallery'
+							? 'text-primary'
+							: 'text-muted-foreground hover:text-primary transition-colors'}">
+						Gallery
+					</a>
+				</nav>
 			</header>
 
 			{#if app.currentGeneration}
@@ -94,8 +115,8 @@
 				<div class="flex flex-col md:flex-row flex-1 min-h-0 gap-2 md:gap-1">
 					<!-- Preview - Full width on mobile (hidden when showRaw), 2/3 or 1/2 on desktop -->
 					<div
-						class="order-1 md:order-2 flex md:flex-none transition-all duration-200 flex-col max-h-1/2 md:max-h-full min-h-[40vh] md:min-h-0 {p.showRawOutput
-							.current && app.currentGeneration?.id
+						class="order-1 md:order-2 flex md:flex-none transition-all duration-200 flex-col max-h-1/2 md:max-h-full min-h-[40vh] md:min-h-0 {p
+							.showRawOutput.current && app.currentGeneration?.id
 							? 'hidden md:flex md:w-1/2'
 							: 'md:w-2/3'}">
 						<div class="flex items-center justify-between h-6 shrink-0 px-1">
@@ -134,11 +155,9 @@
 								{/if}
 							</div>
 						</div>
-						<div class="flex flex-col overflow-auto mt-2 h-full ">
-
-								<ArtifactPreview />
-								<StepsHistory />
-
+						<div class="flex flex-col overflow-auto mt-2 h-full mb-auto">
+							<ArtifactPreview />
+							<StepsHistory />
 						</div>
 					</div>
 

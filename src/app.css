@@ -44,8 +44,8 @@
 	--assistant: oklch(0.55 0.15 150);
 	--assistant-bg: oklch(0.55 0.15 150 / 10%);
 	--success: oklch(0.55 0.15 150);
-	--ascii-grid-stroke: oklch(0.7 0.1 210);
-	--ascii-frame-stroke: oklch(0.75 0.15 50);
+	--ascii-grid-stroke: oklch(87.339% 0.09598 209.83);
+	--ascii-frame-stroke: oklch(94.399% 0.10213 98.406);
 }
 
 .dark {

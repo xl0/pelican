@@ -82,22 +82,28 @@ export const getGeneration = query(v.object({ id: v.string() }), async ({ id }) 
 	}
 });
 
-export const getGenerations = query(async () => {
-	const userId = getCurrentUserId();
-	try {
-		return await db.db_getGenerations(userId);
-	} finally {
-		debug('getGenerations userId=%s', userId);
+export const getGenerations = query(
+	v.object({ limit: v.optional(v.number()), offset: v.optional(v.number()) }),
+	async ({ limit, offset }) => {
+		const userId = getCurrentUserId();
+		try {
+			return await db.db_getGenerations(userId, limit, offset);
+		} finally {
+			debug('getGenerations userId=%s limit=%d offset=%d', userId, limit, offset);
+		}
 	}
-});
+);
 
-export const getPublicGenerations = query(v.object({ limit: v.optional(v.number()) }), async ({ limit }) => {
-	try {
-		return await db.db_getPublicGenerations(limit);
-	} finally {
-		debug('getPublicGenerations limit=%d', limit);
+export const getPublicGenerations = query(
+	v.object({ limit: v.optional(v.number()), offset: v.optional(v.number()) }),
+	async ({ limit, offset }) => {
+		try {
+			return await db.db_getPublicGenerations(limit, offset);
+		} finally {
+			debug('getPublicGenerations limit=%d offset=%d', limit, offset);
+		}
 	}
-});
+);
 
 // ============================================================================
 // Steps

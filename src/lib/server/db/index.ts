@@ -14,7 +14,7 @@ import {
 	type UpdateStep,
 	type NewArtifact
 } from './schema';
-import { eq, desc, asc, and } from 'drizzle-orm';
+import { eq, desc, asc, and, count } from 'drizzle-orm';
 import dbg from 'debug';
 
 const debug = dbg('app:db');
@@ -26,53 +26,70 @@ export const db = drizzle(client, { schema });
 // Generations
 // ============================================================================
 
-export async function db_getGenerations(userId: string) {
+export async function db_getGenerations(userId: string, limit = 20, offset = 0) {
 	try {
-		return await db.query.generations.findMany({
-			columns: {
-				id: true,
-				title: true,
-				format: true,
-				width: true,
-				height: true,
-				updatedAt: true
-			},
-			where: eq(generations.userId, userId),
-			orderBy: desc(generations.updatedAt),
-			with: {
-				steps: { columns: {}, with: { artifacts: { columns: { id: true } } } }
-			}
-		});
+		const [items, countResult] = await Promise.all([
+			db.query.generations.findMany({
+				columns: {
+					id: true,
+					title: true,
+					prompt: true,
+					format: true,
+					width: true,
+					height: true,
+					updatedAt: true
+				},
+				where: eq(generations.userId, userId),
+				orderBy: desc(generations.updatedAt),
+				limit,
+				offset,
+				with: {
+					steps: {
+						columns: { id: true },
+						orderBy: desc(steps.id),
+						limit: 1,
+						with: { artifacts: { columns: { id: true }, orderBy: desc(artifacts.id), limit: 1 } }
+					}
+				}
+			}),
+			db.select({ count: count() }).from(generations).where(eq(generations.userId, userId))
+		]);
+		return { items, count: countResult[0]?.count ?? 0 };
 	} finally {
-		debug('getGenerations userId=%s', userId);
+		debug('getGenerations userId=%s limit=%d offset=%d', userId, limit, offset);
 	}
 }
 
-export async function db_getPublicGenerations(limit = 50) {
+export async function db_getPublicGenerations(limit = 20, offset = 0) {
 	try {
-		return await db.query.generations.findMany({
-			columns: {
-				id: true,
-				title: true,
-				prompt: true,
-				format: true,
-				width: true,
-				height: true,
-				createdAt: true
-			},
-			orderBy: desc(generations.createdAt),
-			limit,
-			with: {
-				steps: {
-					columns: { id: true },
-					orderBy: desc(steps.id),
-					limit: 1,
-					with: { artifacts: { columns: { id: true, body: true }, orderBy: desc(artifacts.id), limit: 1 } }
+		const [items, countResult] = await Promise.all([
+			db.query.generations.findMany({
+				columns: {
+					id: true,
+					title: true,
+					prompt: true,
+					format: true,
+					width: true,
+					height: true,
+					createdAt: true
+				},
+				orderBy: desc(generations.createdAt),
+				limit,
+				offset,
+				with: {
+					steps: {
+						columns: { id: true },
+						orderBy: desc(steps.id),
+						limit: 1,
+						with: { artifacts: { columns: { id: true }, orderBy: desc(artifacts.id), limit: 1 } }
+					}
 				}
-			}
-		});
+			}),
+			db.select({ count: count() }).from(generations)
+		]);
+		return { items, count: countResult[0]?.count ?? 0 };
 	} finally {
-		debug('getPublicGenerations limit=%d', limit);
+		debug('getPublicGenerations limit=%d offset=%d', limit, offset);
 	}
 }
 

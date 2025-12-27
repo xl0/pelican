@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { app } from '$lib/appstate.svelte'; // Ensure imports are correct based on user's manual edits
+	import { app } from '$lib/appstate.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as ImageZoom from '$lib/components/ui/image-zoom';
@@ -13,7 +13,6 @@
 		const steps = app.currentGeneration?.steps;
 		if (!steps?.length) return undefined;
 		const step = steps[app.selectedStepIndex ?? steps.length - 1];
-		// If step has no artifacts, we return undefined (empty box state)
 		const artifacts = step.artifacts;
 		if (!artifacts.length) return undefined;
 		return artifacts[app.selectedArtifactIndex ?? artifacts.length - 1];
@@ -21,28 +20,20 @@
 
 	const gen = $derived(app.currentGeneration);
 	const body = $derived(currentArtifact?.body ?? '');
+	const isSvg = $derived(gen?.format === 'svg');
 
+	// Blob URL for SVG zoom only (no ASCII zoom to avoid circular dependency)
 	let svgBlobUrl = $state<string>('');
-	let asciiSvgElement = $state<SVGSVGElement | null>(null);
 
 	$effect(() => {
-		if (app.isGenerating) return;
-
-		let content = '';
-		if (gen?.format === 'svg' && body) {
-			content = body;
-		} else if (gen?.format === 'ascii' && asciiSvgElement) {
-			content = asciiSvgElement.outerHTML;
-		}
-
-		if (content) {
-			const blob = new Blob([content], { type: 'image/svg+xml' });
-			const url = URL.createObjectURL(blob);
-			svgBlobUrl = url;
-			return () => URL.revokeObjectURL(url);
-		} else {
+		if (app.isGenerating || !isSvg || !body) {
 			svgBlobUrl = '';
+			return;
 		}
+		const blob = new Blob([body], { type: 'image/svg+xml' });
+		const url = URL.createObjectURL(blob);
+		svgBlobUrl = url;
+		return () => URL.revokeObjectURL(url);
 	});
 
 	async function copyImage() {
@@ -55,7 +46,7 @@
 			canvas.height = gen.height;
 			const ctx = canvas.getContext('2d');
 			if (ctx) {
-				ctx.fillStyle = gen.format === 'ascii' ? p.asciiBgColor.current : 'white';
+				ctx.fillStyle = 'white';
 				ctx.fillRect(0, 0, canvas.width, canvas.height);
 				ctx.drawImage(img, 0, 0);
 				canvas.toBlob((blob) => {
@@ -69,75 +60,68 @@
 	}
 
 	function triggerZoom() {
-		if (!app.isGenerating && body) {
+		if (!app.isGenerating && body && isSvg) {
 			document.getElementById('zoom-trigger')?.click();
 		}
 	}
 </script>
 
 {#if gen}
-	{#key svgBlobUrl}
-		<ImageZoom.Root>
-			<!-- svelte-ignore a11y_click_events_have_key_events -->
-			<!-- svelte-ignore a11y_no_static_element_interactions -->
-			<div
-				class="group grow shrink min-h-0 flex overflow-auto min-w-0 items-center justify-center border border-border relative bg-muted/10 transition-colors {body &&
-				!app.isGenerating
-					? 'cursor-zoom-in hover:bg-muted/20'
-					: ''}"
-				onclick={triggerZoom}>
-				<!-- Actions -->
-				{#if body && !app.isGenerating}
-					<div
-						class="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
-						onclick={(e) => e.stopPropagation()}>
+	<ImageZoom.Root>
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
+		<div
+			class="group grow shrink min-h-0 flex overflow-auto min-w-0 items-center justify-start border border-border relative transition-colors {body &&
+			!app.isGenerating &&
+			isSvg
+				? 'cursor-zoom-in hover:bg-muted/20'
+				: ''}"
+			onclick={triggerZoom}>
+			<!-- Actions -->
+			{#if body && !app.isGenerating}
+				<div
+					class="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
+					onclick={(e) => e.stopPropagation()}>
+					{#if isSvg}
 						<Button variant="secondary" size="icon" class="h-8 w-8" onclick={copyImage} title="Copy Image">
 							<ImageDown class="h-4 w-4" />
 						</Button>
-						<CopyButton text={body} />
+					{/if}
+					<CopyButton text={body} />
+				</div>
+			{/if}
+
+			{#if body}
+				{#if gen.format === 'ascii'}
+					<AsciiArt
+						text={body}
+						rows={gen.height}
+						cols={gen.width}
+						grid={true}
+						gridClass="ascii-grid"
+						frameClass="ascii-frame" />
+				{:else if gen.format === 'svg'}
+					<div class="w-full h-full [&>svg]:w-full [&>svg]:h-full">
+						{@html body}
 					</div>
 				{/if}
-
-				{#if body}
-					{#if gen.format === 'ascii'}
-						<div class="w-full h-full" style="background-color: {p.asciiBgColor.current}; color: {p.asciiFgColor.current}">
-							<AsciiArt
-								text={body}
-								rows={gen.height}
-								cols={gen.width}
-								grid={true}
-								frame={true}
-								margin={1}
-								class="w-full h-full"
-								gridClass="ascii-grid"
-								frameClass="ascii-frame"
-								bind:svg={asciiSvgElement} />
-						</div>
-					{/if}
-					{#if gen.format === 'svg'}
-
-						<div class="w-full h-full [&>svg]:w-full [&>svg]:h-full">
-							{@html body}
-						</div>
-					{/if}
-					<!-- Hidden trigger for zoom (applies to both formats since we generate blob for both) -->
-					{#if svgBlobUrl && !app.isGenerating}
-						<ImageZoom.Trigger id="zoom-trigger" src={svgBlobUrl} alt="Preview" class="hidden" />
-					{/if}
-				{:else}
-					<!-- Empty State / Generating -->
-					<div
-						class="w-full h-full flex flex-col justify-center items-center text-muted-foreground {app.isGenerating
-							? 'animate-spin-slow'
-							: ''}"
-						style="aspect-ratio: {gen.width} / {gen.height};">
-						<ImageIcon class="h-48 w-48 opacity-20 stroke-1 mb-2" />
-						<span>{app.isGenerating ? 'Generating...' : 'No content'}</span>
-					</div>
+				<!-- Hidden trigger for SVG zoom only -->
+				{#if svgBlobUrl && !app.isGenerating}
+					<ImageZoom.Trigger id="zoom-trigger" src={svgBlobUrl} alt="Preview" class="hidden" />
 				{/if}
-			</div>
-		</ImageZoom.Root>
-	{/key}
+			{:else}
+				<!-- Empty State / Generating -->
+				<div
+					class="w-full h-full flex flex-col justify-center items-center text-muted-foreground {app.isGenerating
+						? 'animate-spin-slow'
+						: ''}"
+					style="aspect-ratio: {gen.width} / {gen.height};">
+					<ImageIcon class="h-48 w-48 opacity-20 stroke-1 mb-2" />
+					<span>{app.isGenerating ? 'Generating...' : 'No content'}</span>
+				</div>
+			{/if}
+		</div>
+	</ImageZoom.Root>
 {/if}
 
 <style>
