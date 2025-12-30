@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { app } from '$lib/appstate.svelte';
-	import { AsciiArt } from 'svelte-asciiart';
+	import AsciiRenderer from './AsciiRenderer.svelte';
 
 	// Helper: check if step at index is selected (or last step if none selected)
 	function isStepSelected(index: number): boolean {
@@ -36,13 +36,12 @@
 									</div>
 								{:else}
 									<div class="w-full h-full pointer-events-none">
-										<AsciiArt
+										<AsciiRenderer
 											text={artifact.body ?? ''}
 											rows={app.currentGeneration.height}
 											cols={app.currentGeneration.width}
-											frame={true}
-											margin={1}
-											class="w-full h-full" />
+											fontWeight="900"
+											textStrokeWidth="0.2px" />
 									</div>
 								{/if}
 							{:else}

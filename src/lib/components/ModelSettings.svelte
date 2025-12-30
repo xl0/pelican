@@ -7,10 +7,9 @@
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { providerLabel, providers, type providersKey } from '$lib/models';
 	import * as p from '$lib/persisted.svelte';
-	import { cn } from '$lib/utils';
-	import { Eye, EyeOff, Info, Trash2 } from '@lucide/svelte';
+	import { Info, Trash2 } from '@lucide/svelte';
 
-	let showApiKey = $state(false);
+	let isApiKeyFocused = $state(false);
 
 	const gen = $derived(app.currentGeneration);
 	const selectedProvider = $derived(gen?.provider ?? 'anthropic');
@@ -117,20 +116,13 @@
 					id="api-key"
 					bind:value={p.apiKeys.current[gen.provider]}
 					placeholder={`Enter ${providerLabel(gen.provider)} API Key`}
-					class={cn('border-border', !showApiKey && 'security-disc')}
+					style={!isApiKeyFocused ? '-webkit-text-security: disc;' : undefined}
+					class="border-border"
 					autocomplete="off"
-					spellcheck="false" />
-				<Button
-					variant="outline"
-					size="icon"
-					onclick={() => (showApiKey = !showApiKey)}
-					title={showApiKey ? 'Hide API key' : 'Show API key'}>
-					{#if showApiKey}
-						<EyeOff class="h-3 w-3" />
-					{:else}
-						<Eye class="h-3 w-3" />
-					{/if}
-				</Button>
+					data-1p-ignore
+					spellcheck="false"
+					onfocus={() => (isApiKeyFocused = true)}
+					onblur={() => (isApiKeyFocused = false)} />
 
 				<Button
 					variant="outline"
@@ -155,10 +147,4 @@
 			</div>
 		</div>
 	</div>
-
-	<style>
-		:global(.security-disc) {
-			-webkit-text-security: disc;
-		}
-	</style>
 {/if}

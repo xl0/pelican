@@ -1,9 +1,9 @@
 import { command, getRequestEvent, query } from '$app/server';
-import { error, type RemoteQueryFunction } from '@sveltejs/kit';
 import { providerNames } from '$lib/models';
 import * as db from '$lib/server/db';
-import { type NewStep, type UpdateGeneration, type UpdateStep, formatValues, statusValues } from '$lib/server/db/schema';
+import { approvalValues, formatValues, statusValues } from '$lib/server/db/schema';
 import * as s3 from '$lib/server/s3';
+import { error } from '@sveltejs/kit';
 import dbg from 'debug';
 import * as v from 'valibot';
 
@@ -72,10 +72,13 @@ export const updateGeneration = command(
 		initialTemplate: v.optional(v.string()),
 		refinementTemplate: v.optional(v.string()),
 		maxSteps: v.optional(v.number()),
-		sendFullHistory: v.optional(v.boolean())
+		sendFullHistory: v.optional(v.boolean()),
+		approval: v.optional(v.picklist(approvalValues))
 	}),
 	async (data) => {
-		assertUserIdMatches(data.userId);
+		const { locals } = getRequestEvent();
+		const isAdmin = locals.user.isAdmin;
+		if (!isAdmin) assertUserIdMatches(data.userId);
 		try {
 			return await db.db_updateGeneration(data);
 		} finally {
@@ -106,12 +109,16 @@ export const getGenerations = query(
 );
 
 export const getPublicGenerations = query(
-	v.object({ limit: v.optional(v.number()), offset: v.optional(v.number()) }),
-	async ({ limit, offset }) => {
+	v.object({
+		limit: v.optional(v.number()),
+		offset: v.optional(v.number()),
+		approval: v.optional(v.picklist(approvalValues))
+	}),
+	async ({ limit, offset, approval }) => {
 		try {
-			return await db.db_getPublicGenerations(limit, offset);
+			return await db.db_getPublicGenerations(limit, offset, approval);
 		} finally {
-			debug('getPublicGenerations limit=%d offset=%d', limit, offset);
+			debug('getPublicGenerations limit=%d offset=%d approval=%s', limit, offset, approval);
 		}
 	}
 );
@@ -306,36 +313,6 @@ export const getAdminStats = query(async () => {
 	} finally {
 		debug('getAdminStats', { res });
 		return res;
-	}
-});
-
-export const getPendingModerationGenerations = query(
-	v.object({ limit: v.optional(v.number()), offset: v.optional(v.number()) }),
-	async ({ limit, offset }) => {
-		assertAdmin();
-		try {
-			return await db.db_getPendingModerationGenerations(limit, offset);
-		} finally {
-			debug('getPendingModerationGenerations limit=%d offset=%d', limit, offset);
-		}
-	}
-);
-
-export const approveGeneration = command(v.object({ id: v.string() }), async ({ id }) => {
-	assertAdmin();
-	try {
-		await db.db_approveGeneration(id);
-	} finally {
-		debug('approveGeneration id=%s', id);
-	}
-});
-
-export const rejectGeneration = command(v.object({ id: v.string() }), async ({ id }) => {
-	assertAdmin();
-	try {
-		await db.db_rejectGeneration(id);
-	} finally {
-		debug('rejectGeneration id=%s', id);
 	}
 });
 

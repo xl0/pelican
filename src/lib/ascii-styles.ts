@@ -11,27 +11,30 @@ export interface AsciiStyle {
 	grid: boolean; // Show grid lines
 	gridColor: string; // Grid line color (if shown)
 	fontFamily: string; // Font family
+	fontWeight?: string; // Font weight
 }
 
 export const ASCII_STYLES: Record<AsciiStyleName, AsciiStyle> = {
 	teletype: {
 		name: 'teletype',
 		label: 'Teletype',
-		bg: '#f5f0e6', // Off-white paper
-		fg: '#333333', // Dark gray text
-		frame: '#cccccc', // Light gray frame
+		bg: 'var(--ascii-teletype-bg)', // Off-white paper
+		fg: 'var(--ascii-teletype-fg)', // Dark gray text
+		frame: 'var(--ascii-teletype-frame)', // Light gray frame
 		grid: false,
-		gridColor: '#e0e0e0',
-		fontFamily: '"Courier New", Courier, monospace'
+		gridColor: 'var(--ascii-teletype-grid)',
+		// Options: "Special Elite", "Courier Prime", "Cutive Mono"
+		fontFamily: '"Fira Code", monospace',
+		fontWeight: '700'
 	},
 	crt: {
 		name: 'crt',
 		label: 'CRT Terminal',
-		bg: '#1a1a1a', // Dark gray background
-		fg: '#22c55e', // Green-500 text
-		frame: '#3f3f3f', // Subtle gray frame
+		bg: 'var(--ascii-crt-bg)', // Dark gray background
+		fg: 'var(--ascii-crt-fg)', // Green-500 text
+		frame: 'var(--ascii-crt-frame)', // Subtle gray frame
 		grid: false,
-		gridColor: '#2a2a2a',
+		gridColor: 'var(--ascii-crt-grid)',
 		fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
 	}
 };

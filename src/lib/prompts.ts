@@ -33,32 +33,20 @@ Focus on:
 The user wants: {{prompt}}.`;
 
 export const DEFAULT_ASCII_INITIAL_TEMPLATE = `You are an expert ASCII artist.
-First, think about the request:
 1. Rephrase the prompt in your own words.
 2. Visualize how to represent this using ASCII characters.
 3. Finally, generate the ASCII art.
 
+Don't use unicode/emojis unless the user asks. Don't use ansi colors.
+
 Target dimensions: {{width}} characters wide by {{height}} lines tall
+User prompt: {{prompt}}.`;
 
-IMPORTANT: Output ONLY the ASCII art. Do not include any explanations or conversational text.
-Use a variety of characters to create depth and detail: @#%*+=:-.
-
-The user wants: {{prompt}}.`;
-
-export const DEFAULT_ASCII_REFINEMENT_TEMPLATE = `Carefully analyze the previous ASCII art and make SIGNIFICANT improvements.
-First, think about the improvements:
+export const DEFAULT_ASCII_REFINEMENT_TEMPLATE = `Carefully analyze the previous ASCII art and make improvements.
 1. Identify errors or mistakes in the previous version.
-2. Describe how to improve the visual representation using ASCII characters.
+2. Describe how to improve the visual representation using ASCII characters, line by line.
 3. Finally, generate the improved ASCII art.
 
+Reminder:
 Target dimensions: {{width}} characters wide by {{height}} lines tall
-
-Focus on:
-1. **Fixing errors**
-2. **Improving character selection for better depth**
-3. **Enhancing composition and proportions**
-4. **Adding more detail**
-
-IMPORTANT: Output ONLY the ASCII art. Do not include any explanations or conversational text.
-
-The user wants: {{prompt}}.`;
+User prompt: {{prompt}}.`;

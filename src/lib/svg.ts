@@ -57,7 +57,27 @@ export interface RenderAsciiOpts {
  */
 export function renderAsciiToSvg(text: string, opts: RenderAsciiOpts = {}): string {
 	const styleName = opts.style ?? 'crt';
-	const style = ASCII_STYLES[styleName];
+	const rawStyle = ASCII_STYLES[styleName];
+
+	// Resolve CSS variables to actual values
+	const resolver = document.createElement('div');
+	document.body.appendChild(resolver);
+	const getComputed = (val: string) => {
+		if (!val.startsWith('var(')) return val;
+		const varName = val.slice(4, -1); // var(--foo) -> --foo
+		resolver.style.color = val;
+		// If variable isn't defined on element, it might not work, but inherited from root should work
+		return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || val;
+	};
+
+	const style = {
+		...rawStyle,
+		bg: getComputed(rawStyle.bg),
+		fg: getComputed(rawStyle.fg),
+		frame: getComputed(rawStyle.frame),
+		gridColor: getComputed(rawStyle.gridColor)
+	};
+	resolver.remove();
 
 	// Create hidden container
 	const container = document.createElement('div');
@@ -76,7 +96,7 @@ export function renderAsciiToSvg(text: string, opts: RenderAsciiOpts = {}): stri
 			margin: ASCII_MARGIN,
 			frameClass: 'ascii-frame',
 			gridClass: style.grid ? 'ascii-grid' : undefined,
-			style: `color: ${style.fg}; background: ${style.bg}; font-family: ${style.fontFamily};`,
+			style: `color: ${style.fg}; background: ${style.bg}; font-family: ${style.fontFamily}; font-weight: ${style.fontWeight ?? 'normal'};`,
 			get svg() {
 				return svgEl;
 			},

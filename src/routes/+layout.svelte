@@ -1,11 +1,12 @@
 <script lang="ts">
 	import { Toaster } from '$lib/components/ui/sonner';
+	import { toast } from 'svelte-sonner';
 	import '../app.css';
 
 	import { page } from '$app/state';
 	import { app } from '$lib/appstate.svelte';
+	import { ASCII_STYLES } from '$lib/ascii-styles';
 	import ArtifactPreview from '$lib/components/ArtifactPreview.svelte';
-	// import DebugAsciiRender from '$lib/components/DebugAsciiRender.svelte';
 	import Header from '$lib/components/Header.svelte';
 	import ModelSettings from '$lib/components/ModelSettings.svelte';
 	import OutputSettings from '$lib/components/OutputSettings.svelte';
@@ -21,10 +22,8 @@
 	import { getGeneration } from '$lib/data.remote';
 	import { generate } from '$lib/generate';
 	import * as p from '$lib/persisted.svelte';
-	import { ASCII_STYLES } from '$lib/ascii-styles';
-	import { ChevronDown, CircleAlert, WandSparkles } from '@lucide/svelte';
+	import { BookType, ChevronDown, Link, SquareTerminal, WandSparkles } from '@lucide/svelte';
 	import dbg from 'debug';
-	import { resolve } from '$app/paths';
 
 	const debug = dbg('app:layout');
 
@@ -48,6 +47,7 @@
 			// Loading an existing generation from DB
 			generation.then((g) => {
 				debug('generation loaded from DB', { g });
+				app.currentGeneration = undefined;
 				if (g) {
 					// Flatten generationImages junction table to simple images array
 					const { generationImages, ...rest } = g;
@@ -60,8 +60,6 @@
 						initial: g.initialTemplate,
 						refinement: g.refinementTemplate
 					};
-				} else {
-					app.currentGeneration = undefined;
 				}
 				app.selectedStepIndex = undefined;
 				app.selectedArtifactIndex = undefined;
@@ -100,20 +98,66 @@
 								<!-- ASCII Style toggle -->
 								{#if app.currentGeneration?.format === 'ascii'}
 									<Button
-										variant="ghost"
+										variant="outline"
 										size="sm"
-										class="h-5 px-2 text-xs text-muted-foreground hover:text-foreground"
+										class="h-7 w-7 p-0 border-border rounded"
+										style="background-color: {ASCII_STYLES[p.asciiStyle.current].bg}; color: {ASCII_STYLES[p.asciiStyle.current].fg};"
 										onclick={() => (p.asciiStyle.current = p.asciiStyle.current === 'crt' ? 'teletype' : 'crt')}>
-										{ASCII_STYLES[p.asciiStyle.current].label}
+										{#if p.asciiStyle.current === 'crt'}
+											<SquareTerminal class="h-3.5 w-3.5" />
+										{:else}
+											<BookType class="h-3.5 w-3.5" />
+										{/if}
 									</Button>
 								{/if}
 							</div>
 							<div class="flex items-center gap-2 md:gap-4">
+								{#if app.currentGeneration?.id && app.currentGeneration.userId === data.user.id && !data.user.isAnon}
+									{@const gen = app.currentGeneration}
+									<div class="flex items-center gap-2">
+										<div class="flex items-center gap-2" title="Share link">
+											<Label for="shared-toggle" class="text-xs font-medium text-foreground">Share</Label>
+											<Switch
+												id="shared-toggle"
+												class=""
+												checked={gen.shared}
+												onCheckedChange={async (checked) => {
+													const { setGenerationVisibility } = await import('$lib/data.remote');
+													await setGenerationVisibility({ id: gen.id!, userId: data.user.id, shared: checked });
+													gen.shared = checked;
+												}} />
+											{#if gen.shared}
+												<Button
+													variant="ghost"
+													size="icon"
+													class=""
+													title="Copy link"
+													onclick={() => {
+														navigator.clipboard.writeText(`${window.location.origin}/${gen.id}`);
+														toast.success('Link copied to clipboard');
+													}}>
+													<Link class="h-3.5 w-3.5" />
+												</Button>
+											{/if}
+										</div>
+										<div class="flex items-center gap-2" title="Public gallery">
+											<Label for="public-toggle" class="text-xs font-medium text-foreground">Submit to gallery</Label>
+											<Switch
+												id="public-toggle"
+												class="h-5 w-9"
+												checked={gen.public}
+												onCheckedChange={async (checked) => {
+													const { setGenerationVisibility } = await import('$lib/data.remote');
+													await setGenerationVisibility({ id: gen.id!, userId: data.user.id, public: checked });
+													gen.public = checked;
+													if (checked) gen.shared = true; // public implies shared
+												}} />
+										</div>
+									</div>
+									<Separator orientation="vertical" class="h-4" />
+								{/if}
 								{#if !app.isGenerating && app.currentGeneration?.steps?.some((s) => s.rawOutput)}
-									<Button
-										variant="outline"
-										class="h-fit text-xs px-1 py-0"
-										onclick={() => (app.isStreaming ? app.stopStream() : app.simulateStream())}>
+									<Button variant="outline" class="text-xs h-6" onclick={() => (app.isStreaming ? app.stopStream() : app.simulateStream())}>
 										{app.isStreaming ? 'Stop' : 'Stream'}
 									</Button>
 								{/if}
@@ -159,34 +203,7 @@
 							</div>
 
 							<!-- Visibility controls for existing generations owned by registered users -->
-							{#if app.currentGeneration?.id && app.currentGeneration.userId === data.user.id && !data.user.isAnon}
-								{@const gen = app.currentGeneration}
-								<div class="flex items-center gap-4 pt-2">
-									<div class="flex items-center gap-2">
-										<Switch
-											id="shared-toggle"
-											checked={gen.shared}
-											onCheckedChange={async (checked) => {
-												const { setGenerationVisibility } = await import('$lib/data.remote');
-												await setGenerationVisibility({ id: gen.id!, userId: data.user.id, shared: checked });
-												gen.shared = checked;
-											}} />
-										<Label for="shared-toggle" class="text-xs">Share link</Label>
-									</div>
-									<div class="flex items-center gap-2">
-										<Switch
-											id="public-toggle"
-											checked={gen.public}
-											onCheckedChange={async (checked) => {
-												const { setGenerationVisibility } = await import('$lib/data.remote');
-												await setGenerationVisibility({ id: gen.id!, userId: data.user.id, public: checked });
-												gen.public = checked;
-												if (checked) gen.shared = true; // public implies shared
-											}} />
-										<Label for="public-toggle" class="text-xs">Public gallery</Label>
-									</div>
-								</div>
-							{/if}
+							<!-- Visibility controls moved to preview header -->
 
 							<Separator />
 

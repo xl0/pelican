@@ -46,6 +46,16 @@
 	--success: oklch(0.55 0.15 150);
 	--ascii-grid-stroke: oklch(87.339% 0.09598 209.83);
 	--ascii-frame-stroke: oklch(94.399% 0.10213 98.406);
+
+	/* ASCII Styles */
+	--ascii-teletype-bg: #f6f6f6;
+	--ascii-teletype-fg: #333333;
+	--ascii-teletype-frame: #cccccc;
+	--ascii-teletype-grid: #e0e0e0;
+	--ascii-crt-bg: #1a1a1a;
+	--ascii-crt-fg: #22c55e;
+	--ascii-crt-frame: #3f3f3f;
+	--ascii-crt-grid: #2a2a2a;
 }
 
 .dark {
@@ -135,6 +145,25 @@
 	/* Custom font sizes */
 	--font-size-micro: 6px;
 	--font-size-tiny: 10px;
+}
+
+/* Theme Classes */
+.ascii-theme-crt {
+	--ascii-bg: var(--ascii-crt-bg);
+	--ascii-fg: var(--ascii-crt-fg);
+	--ascii-frame-stroke: var(--ascii-crt-frame);
+	--ascii-grid-stroke: var(--ascii-crt-grid);
+	--ascii-font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+	--ascii-font-weight: normal;
+}
+
+.ascii-theme-teletype {
+	--ascii-bg: var(--ascii-teletype-bg);
+	--ascii-fg: var(--ascii-teletype-fg);
+	--ascii-frame-stroke: var(--ascii-teletype-frame);
+	--ascii-grid-stroke: var(--ascii-teletype-grid);
+	--ascii-font-family: 'Fira Code', monospace;
+	--ascii-font-weight: 700;
 }
 
 .ascii-grid {

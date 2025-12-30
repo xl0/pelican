@@ -56,16 +56,27 @@ export async function db_getGenerations(userId: string, limit = 20, offset = 0) 
 	}
 }
 
-export async function db_getPublicGenerations(limit = 20, offset = 0) {
+export async function db_getPublicGenerations(
+	limit = 20,
+	offset = 0,
+	approvalStatus?: 'approved' | 'pending' | 'rejected'
+) {
 	try {
+		const conditions = [eq(generations.public, true)];
+		if (approvalStatus) {
+			conditions.push(eq(generations.approval, approvalStatus));
+		}
+		const whereClause = and(...conditions);
+		const orderBy = approvalStatus === 'pending' ? asc(generations.createdAt) : desc(generations.createdAt);
+
 		const [items, countResult] = await Promise.all([
 			db.query.generations.findMany({
 				columns: {
 					initialTemplate: false,
 					refinementTemplate: false
 				},
-				where: and(eq(generations.public, true), eq(generations.approval, 'approved')),
-				orderBy: desc(generations.createdAt),
+				where: whereClause,
+				orderBy,
 				limit,
 				offset,
 				with: {
@@ -77,14 +88,11 @@ export async function db_getPublicGenerations(limit = 20, offset = 0) {
 					}
 				}
 			}),
-			db
-				.select({ count: count() })
-				.from(generations)
-				.where(and(eq(generations.public, true), eq(generations.approval, 'approved')))
+			db.select({ count: count() }).from(generations).where(whereClause)
 		]);
 		return { items, count: countResult[0]?.count ?? 0 };
 	} finally {
-		debug('getPublicGenerations limit=%d offset=%d', limit, offset);
+		debug('getPublicGenerations limit=%d offset=%d status=%s', limit, offset, approvalStatus);
 	}
 }
 
@@ -343,54 +351,5 @@ export async function db_getAdminStats() {
 		};
 	} finally {
 		debug('getAdminStats');
-	}
-}
-
-export async function db_getPendingModerationGenerations(limit = 20, offset = 0) {
-	try {
-		const [items, countResult] = await Promise.all([
-			db.query.generations.findMany({
-				columns: {
-					initialTemplate: false,
-					refinementTemplate: false
-				},
-				where: and(eq(generations.public, true), eq(generations.approval, 'pending')),
-				orderBy: asc(generations.createdAt),
-				limit,
-				offset,
-				with: {
-					steps: {
-						columns: { id: true },
-						orderBy: desc(steps.id),
-						limit: 1,
-						with: { artifacts: { columns: { id: true }, orderBy: desc(artifacts.id), limit: 1 } }
-					}
-				}
-			}),
-			db
-				.select({ count: count() })
-				.from(generations)
-				.where(and(eq(generations.public, true), eq(generations.approval, 'pending')))
-		]);
-		return { items, count: countResult[0]?.count ?? 0 };
-	} finally {
-		debug('getPendingModerationGenerations limit=%d offset=%d', limit, offset);
-	}
-}
-
-export async function db_approveGeneration(id: string) {
-	try {
-		await db.update(generations).set({ approval: 'approved' }).where(eq(generations.id, id));
-	} finally {
-		debug('approveGeneration id=%s', id);
-	}
-}
-
-export async function db_rejectGeneration(id: string) {
-	try {
-		// Reject = set approval to 'rejected' (user can still see it, won't appear in queue again)
-		await db.update(generations).set({ approval: 'rejected' }).where(eq(generations.id, id));
-	} finally {
-		debug('rejectGeneration id=%s', id);
 	}
 }

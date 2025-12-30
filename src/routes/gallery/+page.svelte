@@ -9,7 +9,7 @@
 	let currentPage = $state(1);
 	const offset = $derived((currentPage - 1) * PER_PAGE);
 
-	const query = $derived(getPublicGenerations({ limit: PER_PAGE, offset }));
+	const query = $derived(getPublicGenerations({ limit: PER_PAGE, offset, approval: 'approved' }));
 </script>
 
 <svelte:head>

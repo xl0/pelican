@@ -6,8 +6,8 @@
 	import * as ImageZoom from '$lib/components/ui/image-zoom';
 	import * as p from '$lib/persisted.svelte';
 	import { ImageDown, ImageIcon } from '@lucide/svelte';
-	import { AsciiArt } from 'svelte-asciiart';
 	import { toast } from 'svelte-sonner';
+	import AsciiRenderer from './AsciiRenderer.svelte';
 
 	// Get the current artifact to display
 	const currentArtifact = $derived.by(() => {
@@ -72,7 +72,7 @@
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
-			class="group grow flex h-fit w-fit overflow-hidden items-center justify-start border border-border relative transition-colors {body &&
+			class="group grow flex h-fit max-h-full w-fit max-w-full overflow-hidden items-center justify-start border border-border relative transition-colors {body &&
 			!app.isGenerating &&
 			isSvg
 				? 'cursor-zoom-in hover:bg-muted/20'
@@ -94,21 +94,8 @@
 
 			{#if body}
 				{#if gen.format === 'ascii'}
-					{@const style = ASCII_STYLES[p.asciiStyle.current]}
 					{#key p.asciiStyle.current}
-						<div
-							class="w-full h-full"
-							style="color: {style.fg}; background: {style.bg}; --ascii-font-family: {style.fontFamily}; --ascii-frame-stroke: {style.frame}; --ascii-grid-stroke: {style.gridColor};">
-							<AsciiArt
-								text={body}
-								rows={gen.height}
-								cols={gen.width}
-								grid={style.grid}
-								margin={1}
-								frame={true}
-								gridClass={style.grid ? 'ascii-grid' : undefined}
-								frameClass="ascii-frame" />
-						</div>
+						<AsciiRenderer text={body} rows={gen.height} cols={gen.width} />
 					{/key}
 				{:else if gen.format === 'svg'}
 					<div class="w-full h-full [&>svg]:w-full [&>svg]:h-full">

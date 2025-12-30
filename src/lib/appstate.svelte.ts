@@ -178,7 +178,7 @@ class AppState {
 		// Setup abort controller
 		this.streamAbort = new AbortController();
 		this.isStreaming = true;
-		this.isGenerating = true;
+		// this.isGenerating = true;
 
 		try {
 			for (let i = 0; i <= fullOutput.length; i += charsPerChunk) {
@@ -192,7 +192,7 @@ class AppState {
 			this.updateStepArtifacts(stepIdx);
 		} finally {
 			this.isStreaming = false;
-			this.isGenerating = false;
+			// this.isGenerating = false;
 			this.streamAbort = null;
 		}
 	}
