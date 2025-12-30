@@ -71,9 +71,7 @@ async function renderArtifactToBlob(body: string, format: 'svg' | 'ascii', opts:
 	} else {
 		return asciiToPngBlob(body, {
 			cols: opts.width,
-			rows: opts.height,
-			fg: p.asciiFgColor.current,
-			bg: p.asciiBgColor.current
+			rows: opts.height
 		});
 	}
 }
@@ -114,7 +112,6 @@ export async function generate(userId: string): Promise<GenerateResult> {
 
 		// 2. Insert generation into DB
 		const dbGen = await insertGeneration({
-			title: gen.title || gen.prompt.slice(0, 50),
 			prompt: gen.prompt,
 			format: gen.format,
 			width: gen.width,

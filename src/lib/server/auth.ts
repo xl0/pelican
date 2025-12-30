@@ -1,5 +1,5 @@
 import type { RequestEvent } from '@sveltejs/kit';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { sha256 } from '@oslojs/crypto/sha2';
 import { encodeBase64url, encodeHexLowerCase } from '@oslojs/encoding';
 import { db } from '$lib/server/db';
@@ -20,12 +20,38 @@ function hashToken(token: string): string {
 	return encodeHexLowerCase(sha256(new TextEncoder().encode(token)));
 }
 
-export function isAnonymous(user: table.User): boolean {
-	return user.passwordHash === null;
+export interface UserMetadata {
+	ip?: string;
+	userAgent?: string;
+	referrer?: string;
+	acceptLanguage?: string;
+	platform?: string;
+	isMobile?: boolean;
+	country?: string;
+	utmSource?: string;
+	utmMedium?: string;
+	utmCampaign?: string;
+	landingPage?: string;
 }
 
-export async function createAnonymousUser(): Promise<table.User> {
-	const [user] = await db.insert(table.users).values({}).returning();
+export async function createAnonymousUser(metadata?: UserMetadata): Promise<table.User> {
+	const [user] = await db
+		.insert(table.users)
+		.values({
+			ip: metadata?.ip,
+			userAgent: metadata?.userAgent,
+			referrer: metadata?.referrer,
+			acceptLanguage: metadata?.acceptLanguage,
+			platform: metadata?.platform,
+			isMobile: metadata?.isMobile,
+			country: metadata?.country,
+			utmSource: metadata?.utmSource,
+			utmMedium: metadata?.utmMedium,
+			utmCampaign: metadata?.utmCampaign,
+			landingPage: metadata?.landingPage,
+			lastSeenAt: new Date()
+		})
+		.returning();
 	return user;
 }
 
@@ -41,11 +67,23 @@ export async function createSession(token: string, userId: string, anonymous: bo
 	return session;
 }
 
-export async function createAnonymousUserWithSession(): Promise<{ user: table.User; session: table.Session; token: string }> {
-	const user = await createAnonymousUser();
+export async function createAnonymousUserWithSession(
+	metadata?: UserMetadata
+): Promise<{ user: table.User; session: table.Session; token: string }> {
+	const user = await createAnonymousUser(metadata);
 	const token = generateSessionToken();
 	const session = await createSession(token, user.id, true);
 	return { user, session, token };
+}
+
+export async function updateUserActivity(userId: string): Promise<void> {
+	await db
+		.update(table.users)
+		.set({
+			lastSeenAt: new Date(),
+			visitCount: sql`${table.users.visitCount} + 1`
+		})
+		.where(eq(table.users.id, userId));
 }
 
 export async function validateSessionToken(token: string): Promise<{ session: table.Session | null; user: table.User | null }> {
@@ -66,7 +104,7 @@ export async function validateSessionToken(token: string): Promise<{ session: ta
 	}
 
 	// Refresh session if registered user and near expiry (within 15 days)
-	if (!isAnonymous(user)) {
+	if (!user.isAnon) {
 		const renewSession = Date.now() >= session.expiresAt.getTime() - DAY_IN_MS * 15;
 		if (renewSession) {
 			session.expiresAt = new Date(Date.now() + DAY_IN_MS * REGISTERED_SESSION_DAYS);
@@ -97,15 +135,6 @@ export function deleteSessionTokenCookie(event: RequestEvent): void {
 export async function getUserById(userId: string): Promise<table.User | null> {
 	const [user] = await db.select().from(table.users).where(eq(table.users.id, userId));
 	return user ?? null;
-}
-
-export async function getUserByUsername(username: string): Promise<table.User | null> {
-	const [user] = await db.select().from(table.users).where(eq(table.users.username, username));
-	return user ?? null;
-}
-
-export async function upgradeToRegistered(userId: string, username: string, passwordHash: string): Promise<void> {
-	await db.update(table.users).set({ username, passwordHash }).where(eq(table.users.id, userId));
 }
 
 export async function updateSessionExpiry(sessionId: string, expiresAt: Date): Promise<void> {

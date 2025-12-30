@@ -1,2 +1,0 @@
-ALTER TABLE "pelican"."generations" ADD COLUMN "max_steps" integer DEFAULT 5 NOT NULL;--> statement-breakpoint
-ALTER TABLE "pelican"."generations" ADD COLUMN "send_full_history" integer DEFAULT 1 NOT NULL;

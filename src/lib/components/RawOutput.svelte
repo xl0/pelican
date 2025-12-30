@@ -83,14 +83,14 @@
 
 <div class="raw-output flex-1 h-0 flex flex-col gap-2">
 	<!-- Controls -->
-	<div class="flex flex-row-reverse md:flex-row items-center justify-between gap-2 shrink-0 px-1">
-		<div class="flex items-center gap-2">
-			<Label for="show-raw-output" class="text-xs font-medium text-foreground">Show Raw</Label>
-			<Switch id="show-raw-output" bind:checked={p.showRawOutput.current} />
-		</div>
+	<div class="flex flex-row items-center justify-between gap-2 shrink-0 px-1 pr-4 h-6">
 		<div class="flex items-center gap-2">
 			<Label for="show-all-steps" class="text-xs font-medium text-muted-foreground">All Steps</Label>
 			<Switch id="show-all-steps" bind:checked={p.showAllSteps.current} />
+		</div>
+		<div class="flex items-center gap-2">
+			<Label for="show-raw-output" class="text-xs font-medium text-foreground">Show Raw</Label>
+			<Switch id="show-raw-output" bind:checked={p.showRawOutput.current} />
 		</div>
 	</div>
 

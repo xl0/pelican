@@ -1,5 +1,5 @@
 import { command, getRequestEvent, query } from '$app/server';
-import { error } from '@sveltejs/kit';
+import { error, type RemoteQueryFunction } from '@sveltejs/kit';
 import { providerNames } from '$lib/models';
 import * as db from '$lib/server/db';
 import { type NewStep, type UpdateGeneration, type UpdateStep, formatValues, statusValues } from '$lib/server/db/schema';
@@ -18,13 +18,17 @@ function assertUserIdMatches(userId: string): void {
 	if (userId !== getCurrentUserId()) error(403, 'Nice try hecker');
 }
 
+function assertAdmin(): void {
+	const { locals } = getRequestEvent();
+	if (!locals.user.isAdmin) error(403, 'Admin access required');
+}
+
 // ============================================================================
 // Generations
 // ============================================================================
 
 export const insertGeneration = command(
 	v.object({
-		title: v.string(),
 		prompt: v.string(),
 		format: v.picklist(formatValues),
 		width: v.number(),
@@ -38,11 +42,18 @@ export const insertGeneration = command(
 		sendFullHistory: v.boolean()
 	}),
 	async (data) => {
-		const userId = getCurrentUserId();
+		const { locals } = getRequestEvent();
+		const userId = locals.user.id;
+		const isAnon = locals.user.isAnon;
+		// Anon users: all generations are shared/public/approved by default
+		// Registered users: private by default, can toggle later
+		const visibility = isAnon
+			? { shared: true, public: true, approval: 'approved' as const }
+			: { shared: false, public: false, approval: 'pending' as const };
 		try {
-			return await db.db_insertGeneration({ ...data, userId });
+			return await db.db_insertGeneration({ ...data, userId, ...visibility });
 		} finally {
-			debug('insertGeneration userId=%s', userId);
+			debug('insertGeneration userId=%s isAnon=%s', userId, isAnon);
 		}
 	}
 );
@@ -51,7 +62,6 @@ export const updateGeneration = command(
 	v.object({
 		id: v.string(),
 		userId: v.string(),
-		title: v.optional(v.string()),
 		prompt: v.optional(v.string()),
 		format: v.optional(v.picklist(formatValues)),
 		width: v.optional(v.number()),
@@ -75,10 +85,11 @@ export const updateGeneration = command(
 );
 
 export const getGeneration = query(v.object({ id: v.string() }), async ({ id }) => {
+	const userId = getCurrentUserId();
 	try {
-		return await db.db_getGeneration(id);
+		return await db.db_getGeneration(id, userId);
 	} finally {
-		debug('getGeneration id=%s', id);
+		debug('getGeneration id=%s userId=%s', id, userId);
 	}
 });
 
@@ -280,5 +291,82 @@ export const linkImageToGeneration = command(
 		assertUserIdMatches(userId);
 		await db.db_linkImageToGeneration(userId, generationId, imageId);
 		debug('linkImageToGeneration genId=%s imgId=%s', generationId, imageId);
+	}
+);
+
+// ============================================================================
+// Admin Functions
+// ============================================================================
+
+export const getAdminStats = query(async () => {
+	assertAdmin();
+	let res;
+	try {
+		res = await db.db_getAdminStats();
+	} finally {
+		debug('getAdminStats', { res });
+		return res;
+	}
+});
+
+export const getPendingModerationGenerations = query(
+	v.object({ limit: v.optional(v.number()), offset: v.optional(v.number()) }),
+	async ({ limit, offset }) => {
+		assertAdmin();
+		try {
+			return await db.db_getPendingModerationGenerations(limit, offset);
+		} finally {
+			debug('getPendingModerationGenerations limit=%d offset=%d', limit, offset);
+		}
+	}
+);
+
+export const approveGeneration = command(v.object({ id: v.string() }), async ({ id }) => {
+	assertAdmin();
+	try {
+		await db.db_approveGeneration(id);
+	} finally {
+		debug('approveGeneration id=%s', id);
+	}
+});
+
+export const rejectGeneration = command(v.object({ id: v.string() }), async ({ id }) => {
+	assertAdmin();
+	try {
+		await db.db_rejectGeneration(id);
+	} finally {
+		debug('rejectGeneration id=%s', id);
+	}
+});
+
+// ============================================================================
+// Visibility Toggles (for registered users)
+// ============================================================================
+
+export const setGenerationVisibility = command(
+	v.object({
+		id: v.string(),
+		userId: v.string(),
+		shared: v.optional(v.boolean()),
+		public: v.optional(v.boolean())
+	}),
+	async ({ id, userId, shared, public: isPublic }) => {
+		assertUserIdMatches(userId);
+		// If setting public=true, also set shared=true (public implies shared)
+		// If setting public=true, auto-approve for now
+		const updates: { shared?: boolean; public?: boolean; approval?: 'approved' | 'pending' } = {};
+		if (shared !== undefined) updates.shared = shared;
+		if (isPublic !== undefined) {
+			updates.public = isPublic;
+			if (isPublic) {
+				updates.shared = true; // public implies shared
+				updates.approval = 'approved'; // auto-approve for now
+			}
+		}
+		try {
+			return await db.db_updateGeneration({ id, userId, ...updates });
+		} finally {
+			debug('setGenerationVisibility id=%s shared=%s public=%s', id, shared, isPublic);
+		}
 	}
 );

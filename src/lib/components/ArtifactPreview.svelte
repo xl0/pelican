@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { app } from '$lib/appstate.svelte';
+	import { ASCII_STYLES } from '$lib/ascii-styles';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as ImageZoom from '$lib/components/ui/image-zoom';
@@ -71,7 +72,7 @@
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div
-			class="group grow shrink min-h-0 flex overflow-auto min-w-0 items-center justify-start border border-border relative transition-colors {body &&
+			class="group grow flex h-fit w-fit overflow-hidden items-center justify-start border border-border relative transition-colors {body &&
 			!app.isGenerating &&
 			isSvg
 				? 'cursor-zoom-in hover:bg-muted/20'
@@ -93,13 +94,22 @@
 
 			{#if body}
 				{#if gen.format === 'ascii'}
-					<AsciiArt
-						text={body}
-						rows={gen.height}
-						cols={gen.width}
-						grid={true}
-						gridClass="ascii-grid"
-						frameClass="ascii-frame" />
+					{@const style = ASCII_STYLES[p.asciiStyle.current]}
+					{#key p.asciiStyle.current}
+						<div
+							class="w-full h-full"
+							style="color: {style.fg}; background: {style.bg}; --ascii-font-family: {style.fontFamily}; --ascii-frame-stroke: {style.frame}; --ascii-grid-stroke: {style.gridColor};">
+							<AsciiArt
+								text={body}
+								rows={gen.height}
+								cols={gen.width}
+								grid={style.grid}
+								margin={1}
+								frame={true}
+								gridClass={style.grid ? 'ascii-grid' : undefined}
+								frameClass="ascii-frame" />
+						</div>
+					{/key}
 				{:else if gen.format === 'svg'}
 					<div class="w-full h-full [&>svg]:w-full [&>svg]:h-full">
 						{@html body}

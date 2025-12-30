@@ -14,8 +14,9 @@ import {
 	type UpdateStep,
 	type NewArtifact
 } from './schema';
-import { eq, desc, asc, and, count } from 'drizzle-orm';
+import { eq, desc, asc, and, count, sql, or } from 'drizzle-orm';
 import dbg from 'debug';
+import { users } from './schema';
 
 const debug = dbg('app:db');
 
@@ -31,13 +32,8 @@ export async function db_getGenerations(userId: string, limit = 20, offset = 0) 
 		const [items, countResult] = await Promise.all([
 			db.query.generations.findMany({
 				columns: {
-					id: true,
-					title: true,
-					prompt: true,
-					format: true,
-					width: true,
-					height: true,
-					updatedAt: true
+					initialTemplate: false,
+					refinementTemplate: false
 				},
 				where: eq(generations.userId, userId),
 				orderBy: desc(generations.updatedAt),
@@ -65,14 +61,10 @@ export async function db_getPublicGenerations(limit = 20, offset = 0) {
 		const [items, countResult] = await Promise.all([
 			db.query.generations.findMany({
 				columns: {
-					id: true,
-					title: true,
-					prompt: true,
-					format: true,
-					width: true,
-					height: true,
-					createdAt: true
+					initialTemplate: false,
+					refinementTemplate: false
 				},
+				where: and(eq(generations.public, true), eq(generations.approval, 'approved')),
 				orderBy: desc(generations.createdAt),
 				limit,
 				offset,
@@ -85,7 +77,10 @@ export async function db_getPublicGenerations(limit = 20, offset = 0) {
 					}
 				}
 			}),
-			db.select({ count: count() }).from(generations)
+			db
+				.select({ count: count() })
+				.from(generations)
+				.where(and(eq(generations.public, true), eq(generations.approval, 'approved')))
 		]);
 		return { items, count: countResult[0]?.count ?? 0 };
 	} finally {
@@ -93,10 +88,16 @@ export async function db_getPublicGenerations(limit = 20, offset = 0) {
 	}
 }
 
-export async function db_getGeneration(id: string, userId?: string) {
+// Get generation - checks ownership or shared=true for public access
+export async function db_getGeneration(id: string, userId: string) {
 	try {
+		// Access: owner (userId matches) OR shared=true
+		const whereClause = and(
+			eq(generations.id, id),
+			or(eq(generations.userId, userId), eq(generations.shared, true), eq(generations.public, true))
+		);
 		return await db.query.generations.findFirst({
-			where: userId ? and(eq(generations.id, id), eq(generations.userId, userId)) : eq(generations.id, id),
+			where: whereClause,
 			with: {
 				steps: {
 					orderBy: asc(steps.id),
@@ -303,5 +304,93 @@ export async function db_deleteImage(id: string) {
 		await db.delete(images).where(eq(images.id, id));
 	} finally {
 		debug('deleteImage id=%s', id);
+	}
+}
+
+// ============================================================================
+// Users / Admin
+// ============================================================================
+
+export async function db_getAdminStats() {
+	try {
+		const [userStats, genStats, pendingCount] = await Promise.all([
+			db
+				.select({
+					total: sql<number>`count(*)::int`,
+					anon: sql<number>`count(*) filter (where ${users.isAnon} = true)::int`,
+					registered: sql<number>`count(*) filter (where ${users.isAnon} = false)::int`
+				})
+				.from(users),
+			db
+				.select({
+					total: sql<number>`count(*)::int`,
+					approved: sql<number>`count(*) filter (where ${generations.approval} = 'approved')::int`,
+					pending: sql<number>`count(*) filter (where ${generations.approval} = 'pending')::int`,
+					rejected: sql<number>`count(*) filter (where ${generations.approval} = 'rejected')::int`,
+					public: sql<number>`count(*) filter (where ${generations.public} = true)::int`,
+					shared: sql<number>`count(*) filter (where ${generations.shared} = true)::int`
+				})
+				.from(generations),
+			db
+				.select({ count: sql<number>`count(*)::int` })
+				.from(generations)
+				.where(and(eq(generations.public, true), eq(generations.approval, 'pending')))
+		]);
+		return {
+			users: userStats[0] ?? { total: 0, anon: 0, registered: 0 },
+			generations: genStats[0] ?? { total: 0, approved: 0, pending: 0, rejected: 0, public: 0, shared: 0 },
+			pendingModeration: pendingCount[0]?.count ?? 0
+		};
+	} finally {
+		debug('getAdminStats');
+	}
+}
+
+export async function db_getPendingModerationGenerations(limit = 20, offset = 0) {
+	try {
+		const [items, countResult] = await Promise.all([
+			db.query.generations.findMany({
+				columns: {
+					initialTemplate: false,
+					refinementTemplate: false
+				},
+				where: and(eq(generations.public, true), eq(generations.approval, 'pending')),
+				orderBy: asc(generations.createdAt),
+				limit,
+				offset,
+				with: {
+					steps: {
+						columns: { id: true },
+						orderBy: desc(steps.id),
+						limit: 1,
+						with: { artifacts: { columns: { id: true }, orderBy: desc(artifacts.id), limit: 1 } }
+					}
+				}
+			}),
+			db
+				.select({ count: count() })
+				.from(generations)
+				.where(and(eq(generations.public, true), eq(generations.approval, 'pending')))
+		]);
+		return { items, count: countResult[0]?.count ?? 0 };
+	} finally {
+		debug('getPendingModerationGenerations limit=%d offset=%d', limit, offset);
+	}
+}
+
+export async function db_approveGeneration(id: string) {
+	try {
+		await db.update(generations).set({ approval: 'approved' }).where(eq(generations.id, id));
+	} finally {
+		debug('approveGeneration id=%s', id);
+	}
+}
+
+export async function db_rejectGeneration(id: string) {
+	try {
+		// Reject = set approval to 'rejected' (user can still see it, won't appear in queue again)
+		await db.update(generations).set({ approval: 'rejected' }).where(eq(generations.id, id));
+	} finally {
+		debug('rejectGeneration id=%s', id);
 	}
 }

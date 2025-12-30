@@ -31,7 +31,6 @@ export function generationFromPersisted(): CurrentGeneration {
 
 	return {
 		userId: '', // Will be set from layout data
-		title: p.prompt.current || 'Untitled',
 		prompt: p.prompt.current,
 		format,
 		width: format === 'svg' ? p.svgWidth.current : p.asciiWidth.current,
@@ -43,6 +42,10 @@ export function generationFromPersisted(): CurrentGeneration {
 		refinementTemplate: format === 'svg' ? p.refinementTemplate.current : p.asciiRefinementTemplate.current,
 		maxSteps: p.maxSteps.current,
 		sendFullHistory: p.sendFullHistory.current,
+		// Visibility (actual values set server-side based on user type)
+		shared: false,
+		public: false,
+		approval: 'pending' as const,
 		// Relations (empty for new generation)
 		steps: [],
 		images: []

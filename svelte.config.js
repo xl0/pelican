@@ -19,14 +19,13 @@ const config = {
 
 	compilerOptions: {
 		runes: true,
-		experimental: {
-			async: true
-		},
-
+		// experimental: {
+		// 	async: true
+		// }
 	},
-	vitePlugin: {
-		inspector: true
-	}
+	// vitePlugin: {
+	// 	inspector: true
+	// }
 };
 
 export default config;

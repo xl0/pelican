@@ -1,1 +1,0 @@
-ALTER TABLE "pelican"."images" ADD COLUMN "extension" text DEFAULT 'png' NOT NULL;

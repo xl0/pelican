@@ -1,24 +1,43 @@
 import { providerNames } from '$lib/models';
 import { relations } from 'drizzle-orm';
 import { boolean, integer, pgSchema, primaryKey, real, serial, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { formatValues, statusValues } from '$lib/types';
+import { approvalValues, formatValues, statusValues } from '$lib/types';
 
 // Re-export for convenience
-export { formatValues, statusValues } from '$lib/types';
-export type { Format, Status } from '$lib/types';
+export { approvalValues, formatValues, statusValues } from '$lib/types';
+export type { Approval, Format, Status } from '$lib/types';
 
 export const pelican = pgSchema('pelican');
 
 export const formatEnum = pelican.enum('formats', [...formatValues]);
 export const providerEnum = pelican.enum('providers', providerNames);
 export const statusEnum = pelican.enum('status', [...statusValues]);
+export const approvalEnum = pelican.enum('approval', [...approvalValues]);
 
 // Auth tables
 export const users = pelican.table('users', {
 	id: uuid('id').primaryKey().defaultRandom(),
-	username: text('username').unique(), // null = anonymous
-	passwordHash: text('password_hash'), // null = anonymous
-	createdAt: timestamp('created_at').notNull().defaultNow()
+	isAnon: boolean('is_anon').notNull().default(true), // anonymous user, flips on OAuth
+	isAdmin: boolean('is_admin').notNull().default(false), // can access admin panel
+	createdAt: timestamp('created_at').notNull().defaultNow(),
+	registeredAt: timestamp('registered_at'), // when OAuth completed (null for anon)
+	// Request metadata (captured on first visit)
+	ip: text('ip'),
+	userAgent: text('user_agent'),
+	referrer: text('referrer'),
+	acceptLanguage: text('accept_language'), // browser language preference
+	platform: text('platform'), // OS from Sec-CH-UA-Platform
+	isMobile: boolean('is_mobile'), // from Sec-CH-UA-Mobile
+	// Geo (derived from IP)
+	country: text('country'),
+	// Marketing attribution
+	utmSource: text('utm_source'),
+	utmMedium: text('utm_medium'),
+	utmCampaign: text('utm_campaign'),
+	landingPage: text('landing_page'), // first URL visited
+	// Activity tracking
+	lastSeenAt: timestamp('last_seen_at'),
+	visitCount: integer('visit_count').notNull().default(1)
 });
 
 export const sessions = pelican.table('sessions', {
@@ -34,7 +53,6 @@ export const generations = pelican.table('generations', {
 	userId: uuid('user_id')
 		.notNull()
 		.references(() => users.id),
-	title: text('title').notNull(),
 	prompt: text('prompt').notNull(),
 	format: formatEnum('format').notNull(),
 	width: integer('width').notNull(),
@@ -49,6 +67,10 @@ export const generations = pelican.table('generations', {
 	// Generation options
 	maxSteps: integer('max_steps').notNull().default(5),
 	sendFullHistory: boolean('send_full_history').notNull().default(true),
+	// Visibility settings
+	shared: boolean('shared').notNull().default(false), // accessible by URL by anyone
+	public: boolean('public').notNull().default(false), // submitted for public gallery
+	approval: approvalEnum('approval').notNull().default('pending'), // pending/approved/rejected
 	createdAt: timestamp('created_at').notNull().defaultNow(),
 	updatedAt: timestamp('updated_at')
 		.notNull()
