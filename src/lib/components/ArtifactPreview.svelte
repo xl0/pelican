@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { app } from '$lib/appstate.svelte';
-	import { ASCII_STYLES } from '$lib/ascii-styles';
 	import CopyButton from '$lib/components/CopyButton.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as ImageZoom from '$lib/components/ui/image-zoom';

@@ -1,6 +1,5 @@
 import { mount, unmount } from 'svelte';
-import { AsciiArt } from 'svelte-asciiart';
-import { ASCII_STYLES, type AsciiStyleName } from './ascii-styles';
+import AsciiRenderer from './components/AsciiRenderer.svelte';
 
 /**
  * Convert SVG string to PNG Blob.
@@ -45,65 +44,39 @@ export function svgToPngBlob(svgString: string, width: number, height: number, b
 
 const ASCII_MARGIN = 1;
 
-export interface RenderAsciiOpts {
-	rows?: number;
-	cols?: number;
-	style?: AsciiStyleName;
+/** Style properties we care about for SVG export (excludes strokeWidth - computed values are in px which breaks SVG) */
+const SVG_STYLE_PROPS = ['fill', 'stroke', 'opacity', 'fontFamily', 'fontWeight', 'fontSize'] as const;
+
+/** Inline computed styles into an SVG element for standalone export */
+function inlineComputedStyles(el: Element) {
+	const cs = getComputedStyle(el);
+	const style = el as HTMLElement | SVGElement;
+	for (const prop of SVG_STYLE_PROPS) {
+		const val = cs[prop as keyof CSSStyleDeclaration];
+		if (val && typeof val === 'string' && val !== 'none' && val !== 'normal' && val !== '0px') {
+			style.style[prop as any] = val;
+		}
+	}
+	// Recurse
+	for (const child of el.children) inlineComputedStyles(child);
 }
 
 /**
- * Render ASCII art to SVG string by mounting AsciiArt.svelte off-screen.
- * Styles are inlined directly into the SVG for export compatibility.
+ * Render ASCII art to SVG string by mounting AsciiRenderer off-screen.
+ * CSS classes apply styles, then we walk the DOM to inline computed styles for export.
  */
-export function renderAsciiToSvg(text: string, opts: RenderAsciiOpts = {}): string {
-	const styleName = opts.style ?? 'crt';
-	const rawStyle = ASCII_STYLES[styleName];
-
-	// Resolve CSS variables to actual values
-	const resolver = document.createElement('div');
-	document.body.appendChild(resolver);
-	const getComputed = (val: string) => {
-		if (!val.startsWith('var(')) return val;
-		const varName = val.slice(4, -1); // var(--foo) -> --foo
-		resolver.style.color = val;
-		// If variable isn't defined on element, it might not work, but inherited from root should work
-		return getComputedStyle(document.documentElement).getPropertyValue(varName).trim() || val;
-	};
-
-	const style = {
-		...rawStyle,
-		bg: getComputed(rawStyle.bg),
-		fg: getComputed(rawStyle.fg),
-		frame: getComputed(rawStyle.frame),
-		gridColor: getComputed(rawStyle.gridColor)
-	};
-	resolver.remove();
-
-	// Create hidden container
+export function renderAsciiToSvg(text: string, cols?: number, rows?: number): string {
+	// Create container attached to body so CSS applies
 	const container = document.createElement('div');
+	container.style.position = 'absolute';
+	container.style.left = '-9999px';
+	container.style.top = '-9999px';
 	document.body.appendChild(container);
 
-	// Mount AsciiArt component
-	let svgEl: SVGSVGElement | null = null;
-	const component = mount(AsciiArt, {
+	// Mount AsciiRenderer - it reads style from persisted state
+	const component = mount(AsciiRenderer, {
 		target: container,
-		props: {
-			text,
-			rows: opts.rows,
-			cols: opts.cols,
-			frame: true,
-			grid: style.grid,
-			margin: ASCII_MARGIN,
-			frameClass: 'ascii-frame',
-			gridClass: style.grid ? 'ascii-grid' : undefined,
-			style: `color: ${style.fg}; background: ${style.bg}; font-family: ${style.fontFamily}; font-weight: ${style.fontWeight ?? 'normal'};`,
-			get svg() {
-				return svgEl;
-			},
-			set svg(el: SVGSVGElement | null) {
-				svgEl = el;
-			}
-		}
+		props: { text, rows, cols, margin: ASCII_MARGIN }
 	});
 
 	const svg = container.querySelector('svg');
@@ -113,32 +86,23 @@ export function renderAsciiToSvg(text: string, opts: RenderAsciiOpts = {}): stri
 		throw new Error('Failed to render AsciiArt SVG');
 	}
 
-	// Add background rect as first child for export
+	// Get computed background color from container
+	const wrapperDiv = container.querySelector('div');
+	const bgColor = wrapperDiv ? getComputedStyle(wrapperDiv).backgroundColor : '#1a1a1a';
+
+	// Add background rect as first child
 	const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
 	bgRect.setAttribute('width', '100%');
 	bgRect.setAttribute('height', '100%');
-	bgRect.setAttribute('fill', style.bg);
+	bgRect.setAttribute('fill', bgColor);
 	svg.insertBefore(bgRect, svg.firstChild);
 
-	// Inline frame/grid styles directly (CSS classes won't work in isolated SVG)
-	for (const el of svg.querySelectorAll('.ascii-frame')) {
-		(el as SVGElement).style.stroke = style.frame;
-		(el as SVGElement).style.strokeWidth = '0.05';
-	}
-	if (style.grid) {
-		for (const el of svg.querySelectorAll('.ascii-grid')) {
-			(el as SVGElement).style.stroke = style.gridColor;
-			(el as SVGElement).style.strokeWidth = '0.03';
-			(el as SVGElement).style.opacity = '0.5';
-		}
-	}
+	// Inline computed styles into all elements
+	inlineComputedStyles(svg);
 
-	// Inline text color
-	for (const el of svg.querySelectorAll('text')) {
-		el.setAttribute('fill', style.fg);
-	}
-
-	const svgString = svg.outerHTML;
+	// Serialize
+	const serializer = new XMLSerializer();
+	const svgString = serializer.serializeToString(svg);
 
 	unmount(component);
 	container.remove();
@@ -148,22 +112,26 @@ export function renderAsciiToSvg(text: string, opts: RenderAsciiOpts = {}): stri
 
 /**
  * Convert ASCII art text to PNG Blob using off-screen rendering.
+ * Dimensions are derived from the SVG viewBox.
  */
-export function asciiToPngBlob(text: string, opts: RenderAsciiOpts & { width?: number; height?: number } = {}): Promise<Blob> {
-	const { width = 800, height, style = 'crt' } = opts;
-	const svg = renderAsciiToSvg(text, { rows: opts.rows, cols: opts.cols, style });
-	const styleObj = ASCII_STYLES[style];
+export function asciiToPngBlob(text: string, cols?: number, rows?: number): Promise<Blob> {
+	const svg = renderAsciiToSvg(text, cols, rows);
 
-	// Derive height from width based on aspect ratio
-	const lines = text.split('\n');
-	const contentCols = Math.max(1, ...lines.map((l) => l.length));
-	const contentRows = lines.length;
-	const cols = opts.cols ?? contentCols;
-	const rows = opts.rows ?? contentRows;
-	const cellAspect = 0.6;
-	const totalCols = cols + ASCII_MARGIN * 2;
-	const totalRows = rows + ASCII_MARGIN * 2;
-	const aspect = totalRows / (totalCols * cellAspect);
-	const h = height ?? Math.round(width * aspect);
-	return svgToPngBlob(svg, width, h, styleObj.bg);
+	// Parse SVG to get dimensions and bg color
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(svg, 'image/svg+xml');
+	const svgEl = doc.querySelector('svg');
+	const bgRect = doc.querySelector('rect');
+	const bgColor = bgRect?.getAttribute('fill') ?? '#1a1a1a';
+
+	// Get dimensions from viewBox or attributes
+	const viewBox = svgEl?.getAttribute('viewBox')?.split(' ').map(Number);
+	const svgWidth = viewBox?.[2] ?? parseFloat(svgEl?.getAttribute('width') ?? '800');
+	const svgHeight = viewBox?.[3] ?? parseFloat(svgEl?.getAttribute('height') ?? '600');
+
+	// Scale to reasonable PNG size (800px wide, maintain aspect)
+	const pngWidth = 800;
+	const pngHeight = Math.round(pngWidth * (svgHeight / svgWidth));
+
+	return svgToPngBlob(svg, pngWidth, pngHeight, bgColor);
 }

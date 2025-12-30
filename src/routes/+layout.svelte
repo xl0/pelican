@@ -5,7 +5,7 @@
 
 	import { page } from '$app/state';
 	import { app } from '$lib/appstate.svelte';
-	import { ASCII_STYLES } from '$lib/ascii-styles';
+
 	import ArtifactPreview from '$lib/components/ArtifactPreview.svelte';
 	import Header from '$lib/components/Header.svelte';
 	import ModelSettings from '$lib/components/ModelSettings.svelte';
@@ -101,7 +101,7 @@
 										variant="outline"
 										size="sm"
 										class="h-7 w-7 p-0 border-border rounded"
-										style="background-color: {ASCII_STYLES[p.asciiStyle.current].bg}; color: {ASCII_STYLES[p.asciiStyle.current].fg};"
+										style="background-color: var(--ascii-{p.asciiStyle.current}-bg); color: var(--ascii-{p.asciiStyle.current}-fg);"
 										onclick={() => (p.asciiStyle.current = p.asciiStyle.current === 'crt' ? 'teletype' : 'crt')}>
 										{#if p.asciiStyle.current === 'crt'}
 											<SquareTerminal class="h-3.5 w-3.5" />

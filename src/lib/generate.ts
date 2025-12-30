@@ -22,6 +22,7 @@ import { providers, type Model, type providersKey } from './models';
 import * as p from './persisted.svelte';
 import { svgToPngBlob, asciiToPngBlob } from './svg';
 import { getInputImageUrl } from './utils';
+import type { Format } from './types';
 
 const debug = dbg('app:generate');
 
@@ -65,14 +66,11 @@ function calculateCost(model: Model, inputTokens: number, outputTokens: number):
 }
 
 /** Render artifact body to PNG Blob */
-async function renderArtifactToBlob(body: string, format: 'svg' | 'ascii', opts: { width: number; height: number }): Promise<Blob> {
+async function renderArtifactToBlob(body: string, format: Format, width: number, height: number): Promise<Blob> {
 	if (format === 'svg') {
-		return svgToPngBlob(body, opts.width, opts.height);
+		return svgToPngBlob(body, width, height);
 	} else {
-		return asciiToPngBlob(body, {
-			cols: opts.width,
-			rows: opts.height
-		});
+		return asciiToPngBlob(body, width, height);
 	}
 }
 
@@ -311,10 +309,7 @@ export async function generate(userId: string): Promise<GenerateResult> {
 
 				// Try to render artifact to PNG
 				try {
-					const blob = await renderArtifactToBlob(art.body, gen.format, {
-						width: gen.width,
-						height: gen.height
-					});
+					const blob = await renderArtifactToBlob(art.body, gen.format, gen.width, gen.height);
 					renderedData = new Uint8Array((await blob.arrayBuffer()) as ArrayBuffer);
 					// Keep last successful render for conversation history
 					lastRenderedBlob = blob;
