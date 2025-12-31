@@ -5,28 +5,54 @@
 	import { Label } from '$lib/components/ui/label';
 	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
 	import * as Tooltip from '$lib/components/ui/tooltip';
-	import { providerLabel, providers, type providersKey } from '$lib/models';
+	import { getProvidersWithModels } from '$lib/data.remote';
 	import * as p from '$lib/persisted.svelte';
 	import { Info, Trash2 } from '@lucide/svelte';
 
 	let isApiKeyFocused = $state(false);
 
+	// Fetch providers with their models from database
+	const providersQuery = $derived(getProvidersWithModels());
+
+	// Type for provider with models from query
+	type ProviderWithModels = NonNullable<typeof providersQuery.current>[number];
+
+	// Build lookup map from query data
+	const providersLookup = $derived.by(() => {
+		const data = providersQuery.current;
+		if (!data) return new Map<string, ProviderWithModels>();
+		return new Map(data.map((prov) => [prov.id, prov]));
+	});
+
 	const gen = $derived(app.currentGeneration);
 	const selectedProvider = $derived(gen?.provider ?? 'anthropic');
 	const selectedModel = $derived(gen?.model ?? '');
 
+	// Get provider label from database or fallback to ID
+	const providerLabel = $derived.by(() => {
+		return providersLookup.get(selectedProvider)?.label ?? selectedProvider;
+	});
+
+	// Get models for current provider
+	const currentProviderModels = $derived.by(() => {
+		return providersLookup.get(selectedProvider)?.models ?? [];
+	});
+
 	const modelLabel = $derived.by(() => {
 		if (selectedModel === 'custom') return 'Custom Model';
-		const providerModels = providers[selectedProvider]?.models || [];
-		return providerModels.find((m) => m.value === selectedModel)?.label || selectedModel || 'Select a model';
+		const model = currentProviderModels.find((m) => m.value === selectedModel);
+		return model?.label || selectedModel || 'Select a model';
 	});
 
 	const endpointPlaceholder = $derived(selectedProvider === 'custom' ? 'e.g. https://api.openai.com/v1' : 'Leave empty for default');
 
 	function handleProviderChange(value: string | undefined) {
-		if (value && value in providers) {
-			app.switchProvider(value as providersKey);
-		}
+		if (!value || !gen) return;
+		gen.provider = value;
+		// Get first model for new provider from DB, or empty for custom
+		const models = providersLookup.get(value)?.models ?? [];
+		gen.model = p.selected_model.current[value] ?? models[0]?.value ?? '';
+		gen.endpoint = p.endpoint.current[value] ?? null;
 	}
 
 	function handleModelChange(value: string | undefined) {
@@ -45,12 +71,16 @@
 				<Label for="provider-select" class="text-xs font-semibold text-foreground">Provider</Label>
 				<Select type="single" value={gen.provider} onValueChange={handleProviderChange}>
 					<SelectTrigger class="w-full border-border">
-						{providerLabel(gen.provider)}
+						{providerLabel}
 					</SelectTrigger>
 					<SelectContent>
-						{#each Object.values(providers) as prov}
-							<SelectItem value={prov.value}>{prov.label}</SelectItem>
-						{/each}
+						{#if providersQuery.current}
+							{#each providersQuery.current as prov}
+								<SelectItem value={prov.id}>{prov.label}</SelectItem>
+							{/each}
+						{:else}
+							<SelectItem value={selectedProvider}>{providerLabel}</SelectItem>
+						{/if}
 					</SelectContent>
 				</Select>
 			</div>
@@ -66,7 +96,7 @@
 							{modelLabel}
 						</SelectTrigger>
 						<SelectContent>
-							{#each providers[selectedProvider].models as modelOption}
+							{#each currentProviderModels as modelOption}
 								<SelectItem value={modelOption.value}>{modelOption.label}</SelectItem>
 							{/each}
 							<SelectItem value="custom">Custom...</SelectItem>
@@ -93,7 +123,7 @@
 		<div class="space-y-1.5">
 			<div class="flex items-center gap-1.5">
 				<Label for="api-key" class="text-xs font-semibold text-foreground">
-					API Key for {providerLabel(gen.provider)}
+					API Key for {providerLabel}
 				</Label>
 				<Tooltip.Provider>
 					<Tooltip.Root>
@@ -105,7 +135,7 @@
 							<ul class="text-xs list-disc list-inside mt-1 space-y-1">
 								<li>Saved locally on your computer</li>
 								<li>Never sent to our server</li>
-								<li>Only sent directly to {providerLabel(gen.provider)}</li>
+								<li>Only sent directly to {providerLabel}</li>
 							</ul>
 						</Tooltip.Content>
 					</Tooltip.Root>
@@ -115,7 +145,7 @@
 				<Input
 					id="api-key"
 					bind:value={p.apiKeys.current[gen.provider]}
-					placeholder={`Enter ${providerLabel(gen.provider)} API Key`}
+					placeholder={`Enter ${providerLabel} API Key`}
 					style={!isApiKeyFocused ? '-webkit-text-security: disc;' : undefined}
 					class="border-border"
 					autocomplete="off"

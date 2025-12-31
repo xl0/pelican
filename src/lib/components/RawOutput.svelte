@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { app } from '$lib/appstate.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';
+	import CostDisplay from '$lib/components/CostDisplay.svelte';
 	import { Label } from '$lib/components/ui/label';
 	import { Separator } from '$lib/components/ui/separator';
 	import { Switch } from '$lib/components/ui/switch';
@@ -102,7 +103,14 @@
 				{@const prev = i > 0 ? steps[i - 1] : undefined}
 				{@const prevRenderedUrl = getStepRenderedUrl(prev)}
 				<div id="step-{i}" class="flex flex-col gap-2 p-2 border shrink-0 {isSelected ? 'border-primary bg-primary/5' : 'border-border'}">
-					<div class="text-xs font-bold text-foreground px-2">Step {i + 1}</div>
+					<div class="flex justify-between items-center px-2">
+						<span class="text-xs font-bold text-foreground">Step {i + 1}</span>
+						<CostDisplay
+							inputTokens={step.inputTokens ?? 0}
+							outputTokens={step.outputTokens ?? 0}
+							inputCost={step.inputCost ?? 0}
+							outputCost={step.outputCost ?? 0} />
+					</div>
 
 					<!-- User message -->
 					<div class="shrink-0">
@@ -144,7 +152,16 @@
 			<!-- Single Step View -->
 			{#if currentStep}
 				{@const prevStepRenderedUrl = getStepRenderedUrl(prevStep)}
-				<!-- For refinement steps, show previous Assistant output first -->
+
+				<!-- Step header -->
+				<div class="flex justify-between items-center px-2 shrink-0">
+					<span class="text-xs font-bold text-foreground">Step {selectedIndex + 1}</span>
+					<CostDisplay
+						inputTokens={currentStep.inputTokens ?? 0}
+						outputTokens={currentStep.outputTokens ?? 0}
+						inputCost={currentStep.inputCost ?? 0}
+						outputCost={currentStep.outputCost ?? 0} />
+				</div>
 
 				<!-- User message -->
 				<div class="shrink-0">

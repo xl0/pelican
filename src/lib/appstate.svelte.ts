@@ -1,4 +1,3 @@
-import { type providersKey, providers } from './models';
 import * as p from './persisted.svelte';
 import dbg from 'debug';
 import type { getGeneration } from './data.remote';
@@ -36,7 +35,7 @@ export function generationFromPersisted(): CurrentGeneration {
 		width: format === 'svg' ? p.svgWidth.current : p.asciiWidth.current,
 		height: format === 'svg' ? p.svgHeight.current : p.asciiHeight.current,
 		provider,
-		model: p.selected_model.current[provider] ?? providers[provider]?.models[0]?.value ?? '',
+		model: p.selected_model.current[provider] ?? '',
 		endpoint: p.endpoint.current[provider] ?? null,
 		initialTemplate: format === 'svg' ? p.initialTemplate.current : p.asciiInitialTemplate.current,
 		refinementTemplate: format === 'svg' ? p.refinementTemplate.current : p.asciiRefinementTemplate.current,
@@ -117,11 +116,11 @@ class AppState {
 		this.resetFromPersisted();
 	}
 
-	/** Switch provider and update model to default for that provider */
-	switchProvider(newProvider: providersKey) {
+	/** Switch provider - model is set by caller (ModelSettings) */
+	switchProvider(newProvider: string) {
 		if (!this.currentGeneration) return;
 		this.currentGeneration.provider = newProvider;
-		this.currentGeneration.model = p.selected_model.current[newProvider] ?? providers[newProvider]?.models[0]?.value ?? '';
+		this.currentGeneration.model = p.selected_model.current[newProvider] ?? '';
 		this.currentGeneration.endpoint = p.endpoint.current[newProvider] ?? null;
 	}
 

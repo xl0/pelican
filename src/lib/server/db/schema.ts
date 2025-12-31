@@ -1,6 +1,5 @@
-import { providerNames } from '$lib/models';
 import { relations } from 'drizzle-orm';
-import { boolean, integer, pgSchema, primaryKey, real, serial, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { boolean, integer, pgSchema, primaryKey, real, serial, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { approvalValues, formatValues, statusValues } from '$lib/types';
 
 // Re-export for convenience
@@ -10,7 +9,6 @@ export type { Approval, Format, Status } from '$lib/types';
 export const pelican = pgSchema('pelican');
 
 export const formatEnum = pelican.enum('formats', [...formatValues]);
-export const providerEnum = pelican.enum('providers', providerNames);
 export const statusEnum = pelican.enum('status', [...statusValues]);
 export const approvalEnum = pelican.enum('approval', [...approvalValues]);
 
@@ -48,6 +46,29 @@ export const sessions = pelican.table('sessions', {
 	expiresAt: timestamp('expires_at', { withTimezone: true, mode: 'date' }).notNull()
 });
 
+// Provider and model catalog tables
+export const providers = pelican.table('llm_providers', {
+	id: text('id').primaryKey(), // 'openai', 'anthropic', 'google', 'xai', 'openrouter', 'custom'
+	label: text('label').notNull(), // Display name: 'OpenAI', 'Anthropic', etc.
+	sortOrder: integer('sort_order').notNull().default(0)
+});
+
+export const models = pelican.table(
+	'models',
+	{
+		id: serial('id').primaryKey(),
+		providerId: text('provider_id')
+			.notNull()
+			.references(() => providers.id, { onDelete: 'cascade' }),
+		value: text('value').notNull(), // Model identifier: 'gpt-4o', 'claude-3-5-sonnet-20241022'
+		label: text('label').notNull(), // Display name: 'GPT-4o', 'Claude 3.5 Sonnet'
+		inputPrice: real('input_price').notNull().default(0), // Cost per 1M input tokens
+		outputPrice: real('output_price').notNull().default(0), // Cost per 1M output tokens
+		supportsImages: boolean('supports_images').notNull().default(true)
+	},
+	(t) => [unique().on(t.providerId, t.value)]
+);
+
 export const generations = pelican.table('generations', {
 	id: uuid('id').primaryKey().defaultRandom(),
 	userId: uuid('user_id')
@@ -57,9 +78,9 @@ export const generations = pelican.table('generations', {
 	format: formatEnum('format').notNull(),
 	width: integer('width').notNull(),
 	height: integer('height').notNull(),
-	// Model settings
-	provider: providerEnum('provider').notNull(),
-	model: text('model').notNull(),
+	// Model settings (text only - used for history display)
+	provider: text('provider').notNull(), // 'openai', 'anthropic', etc.
+	model: text('model').notNull(), // 'gpt-4o', 'claude-3-5-sonnet-20241022'
 	endpoint: text('endpoint'),
 	// Prompt templates
 	initialTemplate: text('initial_template').notNull(),
@@ -152,6 +173,17 @@ export const sessionRelations = relations(sessions, ({ one }) => ({
 	})
 }));
 
+export const providerRelations = relations(providers, ({ many }) => ({
+	models: many(models)
+}));
+
+export const modelRelations = relations(models, ({ one }) => ({
+	provider: one(providers, {
+		fields: [models.providerId],
+		references: [providers.id]
+	})
+}));
+
 export const genRelations = relations(generations, ({ one, many }) => ({
 	user: one(users, {
 		fields: [generations.userId],
@@ -216,3 +248,11 @@ export type NewArtifact = typeof artifacts.$inferInsert;
 // Image types
 export type Image = typeof images.$inferSelect;
 export type NewImage = typeof images.$inferInsert;
+
+// Provider types
+export type Provider = typeof providers.$inferSelect;
+export type NewProvider = typeof providers.$inferInsert;
+
+// Model types
+export type Model = typeof models.$inferSelect;
+export type NewModel = typeof models.$inferInsert;

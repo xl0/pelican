@@ -1,5 +1,6 @@
 /**
  * Seed script to populate the database with sample generations for testing.
+ * - Seeds providers and models from the hardcoded catalog
  * - Extracts artifacts from rawOutput using the same regex as the app
  * - Renders SVG to PNG using resvg (server-side)
  * - Uploads artifacts and rendered PNGs to S3
@@ -11,6 +12,7 @@ import { Resvg } from '@resvg/resvg-js';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from '../lib/server/db/schema';
+import { providers as providerCatalog, type providersKey } from './models';
 import type { Format } from '../lib/types';
 
 // Validate env
@@ -27,6 +29,44 @@ const s3 = new S3Client({
 	credentials: { accessKeyId: process.env.AWS_ACCESS_KEY_ID!, secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY! }
 });
 const S3_BUCKET = process.env.S3_BUCKET!;
+
+// ============================================================================
+// Seed providers and models
+// ============================================================================
+
+const PROVIDER_ORDER: providersKey[] = ['openai', 'anthropic', 'google', 'xai', 'openrouter', 'custom'];
+
+async function seedProvidersAndModels() {
+	console.log('🏢 Seeding providers and models...\n');
+
+	for (let i = 0; i < PROVIDER_ORDER.length; i++) {
+		const provId = PROVIDER_ORDER[i];
+		const prov = providerCatalog[provId];
+
+		// Insert provider
+		await db.insert(schema.providers).values({ id: prov.value, label: prov.label, sortOrder: i }).onConflictDoNothing();
+		console.log(`  ✓ Provider: ${prov.label}`);
+
+		// Insert models for this provider (skip 'custom' - it has no predefined models)
+		if (provId !== 'custom') {
+			for (const model of prov.models) {
+				await db
+					.insert(schema.models)
+					.values({
+						providerId: prov.value,
+						value: model.value,
+						label: model.label,
+						inputPrice: model.pricing.input,
+						outputPrice: model.pricing.output,
+						supportsImages: model.supportsImages
+					})
+					.onConflictDoNothing();
+			}
+			console.log(`    → ${prov.models.length} models`);
+		}
+	}
+	console.log('');
+}
 
 // ============================================================================
 // Artifact extraction (simplified - no DOMPurify, that's browser-only)
@@ -229,6 +269,9 @@ async function seed() {
 	console.log('Creating dev user...');
 	await db.insert(schema.users).values({ id: DEV_USER_ID, isAnon: false, isAdmin: true }).onConflictDoNothing();
 	console.log(`  ✓ User ${DEV_USER_ID} ready\n`);
+
+	// Seed providers and models
+	await seedProvidersAndModels();
 
 	for (const gen of GENERATIONS) {
 		console.log(`Creating: ${gen.prompt.slice(0, 50)}...`);

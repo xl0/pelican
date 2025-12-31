@@ -1,5 +1,4 @@
 import { command, getRequestEvent, query } from '$app/server';
-import { providerNames } from '$lib/models';
 import * as db from '$lib/server/db';
 import { approvalValues, formatValues, statusValues } from '$lib/server/db/schema';
 import * as s3 from '$lib/server/s3';
@@ -24,6 +23,18 @@ function assertAdmin(): void {
 }
 
 // ============================================================================
+// Providers & Models Catalog
+// ============================================================================
+
+export const getProvidersWithModels = query(async () => {
+	try {
+		return await db.db_getProvidersWithModels();
+	} finally {
+		debug('getProvidersWithModels');
+	}
+});
+
+// ============================================================================
 // Generations
 // ============================================================================
 
@@ -33,7 +44,7 @@ export const insertGeneration = command(
 		format: v.picklist(formatValues),
 		width: v.number(),
 		height: v.number(),
-		provider: v.picklist(providerNames),
+		provider: v.string(),
 		model: v.string(),
 		endpoint: v.nullable(v.string()),
 		initialTemplate: v.string(),
@@ -66,7 +77,7 @@ export const updateGeneration = command(
 		format: v.optional(v.picklist(formatValues)),
 		width: v.optional(v.number()),
 		height: v.optional(v.number()),
-		provider: v.optional(v.picklist(providerNames)),
+		provider: v.optional(v.string()),
 		model: v.optional(v.string()),
 		endpoint: v.optional(v.nullable(v.string())),
 		initialTemplate: v.optional(v.string()),

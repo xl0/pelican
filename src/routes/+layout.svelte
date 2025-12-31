@@ -7,6 +7,7 @@
 	import { app } from '$lib/appstate.svelte';
 
 	import ArtifactPreview from '$lib/components/ArtifactPreview.svelte';
+	import CostDisplay from '$lib/components/CostDisplay.svelte';
 	import Header from '$lib/components/Header.svelte';
 	import ModelSettings from '$lib/components/ModelSettings.svelte';
 	import OutputSettings from '$lib/components/OutputSettings.svelte';
@@ -31,6 +32,13 @@
 
 	// Routes that use the main generation UI
 	const isMainRoute = $derived(page.route.id === '/' || page.route.id === '/[id]');
+
+	// Compute cost totals for CostDisplay
+	const costSteps = $derived(app.currentGeneration?.steps ?? []);
+	const totalInputTokens = $derived(costSteps.reduce((sum, s) => sum + (s.inputTokens ?? 0), 0));
+	const totalOutputTokens = $derived(costSteps.reduce((sum, s) => sum + (s.outputTokens ?? 0), 0));
+	const totalInputCost = $derived(costSteps.reduce((sum, s) => sum + (s.inputCost ?? 0), 0));
+	const totalOutputCost = $derived(costSteps.reduce((sum, s) => sum + (s.outputCost ?? 0), 0));
 
 	let generation = $derived.by(() => {
 		if (!isMainRoute) return undefined;
@@ -95,6 +103,11 @@
 						<div class="flex items-center justify-between h-6 shrink-0 px-1">
 							<div class="flex items-center gap-2">
 								<h2 class="text-sm font-bold text-foreground m-0">Preview</h2>
+								<CostDisplay
+									inputTokens={totalInputTokens}
+									outputTokens={totalOutputTokens}
+									inputCost={totalInputCost}
+									outputCost={totalOutputCost} />
 								<!-- ASCII Style toggle -->
 								{#if app.currentGeneration?.format === 'ascii'}
 									<Button

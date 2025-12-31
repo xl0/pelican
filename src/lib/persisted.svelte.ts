@@ -1,6 +1,5 @@
 import { PersistedState } from 'runed';
 import { toast } from 'svelte-sonner';
-import { type providersKey } from './models';
 import {
 	DEFAULT_ASCII_INITIAL_TEMPLATE,
 	DEFAULT_ASCII_REFINEMENT_TEMPLATE,
@@ -22,7 +21,7 @@ const persisted = <T>(s: string, arg: T) => new PersistedState<T>(prefix(s), arg
 
 // Persisted settings (using runed's PersistedState)
 
-export const provider = persisted<providersKey>('provider', 'anthropic');
+export const provider = persisted<string>('provider', 'anthropic');
 export const customModelId = persisted('customModelId', '');
 
 export const outputFormat = persisted<'svg' | 'ascii'>('outputFormat', 'svg');
@@ -45,13 +44,13 @@ export const asciiStyle = persisted<'teletype' | 'crt'>('asciiStyle', 'crt');
 export const apiKeys = persisted<Record<string, string>>('apiKeys', {});
 
 // Save the selected model and endpoint per provider
-export const selected_model = persisted<Partial<Record<providersKey, string>>>('model', {});
-export const endpoint = persisted<Partial<Record<providersKey, string>>>('endpoint', {});
+export const selected_model = persisted<Record<string, string>>('model', {});
+export const endpoint = persisted<Record<string, string>>('endpoint', {});
 
 // API keys - stored as object with provider as key (auto-persisted)
 
-export function clearApikey(p: providersKey): void {
-	const { [p]: _, ...rest } = apiKeys.current;
+export function clearApikey(prov: string): void {
+	const { [prov]: _, ...rest } = apiKeys.current;
 	apiKeys.current = rest;
 	toast.success(`API key cleared for ${provider.current}`);
 }

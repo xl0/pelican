@@ -8,6 +8,8 @@ import {
 	artifacts,
 	images,
 	generationImages,
+	providers,
+	models,
 	type NewGeneration,
 	type UpdateGeneration,
 	type NewStep,
@@ -22,6 +24,21 @@ const debug = dbg('app:db');
 
 const client = postgres(DATABASE_URL);
 export const db = drizzle(client, { schema });
+
+// ============================================================================
+// Providers & Models Catalog
+// ============================================================================
+
+export async function db_getProvidersWithModels() {
+	try {
+		return await db.query.providers.findMany({
+			orderBy: asc(providers.sortOrder),
+			with: { models: { orderBy: asc(models.id) } }
+		});
+	} finally {
+		debug('getProvidersWithModels');
+	}
+}
 
 // ============================================================================
 // Generations
@@ -56,11 +73,7 @@ export async function db_getGenerations(userId: string, limit = 20, offset = 0) 
 	}
 }
 
-export async function db_getPublicGenerations(
-	limit = 20,
-	offset = 0,
-	approvalStatus?: 'approved' | 'pending' | 'rejected'
-) {
+export async function db_getPublicGenerations(limit = 20, offset = 0, approvalStatus?: 'approved' | 'pending' | 'rejected') {
 	try {
 		const conditions = [eq(generations.public, true)];
 		if (approvalStatus) {
@@ -99,7 +112,7 @@ export async function db_getPublicGenerations(
 // Get generation - checks ownership or shared=true for public access
 export async function db_getGeneration(id: string, userId: string) {
 	try {
-		// Access: owner (userId matches) OR shared=true
+		// Access: owner (userId matches) OR shared/public=true
 		const whereClause = and(
 			eq(generations.id, id),
 			or(eq(generations.userId, userId), eq(generations.shared, true), eq(generations.public, true))

@@ -17,8 +17,15 @@ import dbg from 'debug';
 import { toast } from 'svelte-sonner';
 import { app, type CurrentGeneration } from './appstate.svelte';
 import { extractArtifacts } from './artifacts';
-import { insertGeneration, insertStep, updateStep, uploadArtifact, uploadInputImage, linkImageToGeneration } from './data.remote';
-import { providers, type Model, type providersKey } from './models';
+import {
+	insertGeneration,
+	insertStep,
+	updateStep,
+	uploadArtifact,
+	uploadInputImage,
+	linkImageToGeneration,
+	getProvidersWithModels
+} from './data.remote';
 import * as p from './persisted.svelte';
 import { svgToPngBlob, asciiToPngBlob } from './svg';
 import { getInputImageUrl } from './utils';
@@ -26,7 +33,7 @@ import type { Format } from './types';
 
 const debug = dbg('app:generate');
 
-function getModelInstance(provider: providersKey, modelId: string, apiKey: string, endpoint?: string | null): LanguageModel {
+function getModelInstance(provider: string, modelId: string, apiKey: string, endpoint?: string | null): LanguageModel {
 	switch (provider) {
 		case 'openai':
 			return createOpenAI({ apiKey, baseURL: endpoint ?? undefined })(modelId);
@@ -47,22 +54,6 @@ function getModelInstance(provider: providersKey, modelId: string, apiKey: strin
 		default:
 			throw new Error(`Unsupported provider: ${provider}`);
 	}
-}
-
-function getModelInfo(provider: providersKey, modelId: string): Model | undefined {
-	const providerData = providers[provider];
-	if (!providerData) return undefined;
-	if (provider === 'custom') {
-		return { value: modelId, label: modelId, pricing: { input: 0, output: 0 }, supportsImages: true };
-	}
-	return providerData.models.find((m) => m.value === modelId);
-}
-
-function calculateCost(model: Model, inputTokens: number, outputTokens: number): { input: number; output: number } {
-	return {
-		input: (inputTokens / 1_000_000) * model.pricing.input,
-		output: (outputTokens / 1_000_000) * model.pricing.output
-	};
 }
 
 /** Render artifact body to PNG Blob */
@@ -91,16 +82,22 @@ export async function generate(userId: string): Promise<GenerateResult> {
 
 	const apiKey = p.apiKeys.current[gen.provider];
 	if (!apiKey) {
-		toast.error(`Please enter an API key for ${providers[gen.provider].label}`);
+		toast.error(`Please enter an API key for ${gen.provider}`);
 		throw new Error('Missing API key');
 	}
 
-	const modelInfo = getModelInfo(gen.provider, gen.model);
+	// Fetch model pricing from DB (lookup in providers data)
+	const providersData = await getProvidersWithModels();
+	const providerModels = providersData?.find((p) => p.id === gen.provider)?.models ?? [];
+	const modelData = providerModels.find((m) => m.value === gen.model);
+	const inputPrice = modelData?.inputPrice ?? 0;
+	const outputPrice = modelData?.outputPrice ?? 0;
+
 	const model = getModelInstance(gen.provider, gen.model, apiKey, gen.endpoint?.trim() || undefined);
 	const maxSteps = gen.maxSteps || 1;
 
 	app.isGenerating = true;
-	debug('Starting generation', { provider: gen.provider, model: gen.model, maxSteps });
+	debug('Starting generation', { provider: gen.provider, model: gen.model, maxSteps, inputPrice, outputPrice });
 
 	let generationId: string | undefined;
 
@@ -263,7 +260,6 @@ export async function generate(userId: string): Promise<GenerateResult> {
 			const usage = await result.usage;
 			const inputTokens = usage?.inputTokens ?? 0;
 			const outputTokens = usage?.outputTokens ?? 0;
-			const cost = modelInfo ? calculateCost(modelInfo, inputTokens, outputTokens) : { input: 0, output: 0 };
 
 			// Final artifact extraction
 			const step = gen.steps[stepNum]!;
@@ -275,8 +271,8 @@ export async function generate(userId: string): Promise<GenerateResult> {
 			step.status = 'completed';
 			step.inputTokens = inputTokens;
 			step.outputTokens = outputTokens;
-			step.inputCost = cost.input;
-			step.outputCost = cost.output;
+			step.inputCost = (inputTokens / 1_000_000) * inputPrice;
+			step.outputCost = (outputTokens / 1_000_000) * outputPrice;
 
 			debug('Step completed', {
 				stepNum: stepNum + 1,
@@ -295,8 +291,8 @@ export async function generate(userId: string): Promise<GenerateResult> {
 				rawOutput: step.rawOutput ?? '',
 				inputTokens,
 				outputTokens,
-				inputCost: cost.input,
-				outputCost: cost.output
+				inputCost: (inputTokens / 1_000_000) * inputPrice,
+				outputCost: (outputTokens / 1_000_000) * outputPrice
 			});
 			debug('Step updated in DB');
 
