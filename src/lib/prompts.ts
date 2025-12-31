@@ -1,3 +1,5 @@
+import dbg from 'debug';
+const debug = dbg('app:prompts');
 export const DEFAULT_INITIAL_TEMPLATE = `You are an expert SVG artist.
 First, think about the request:
 1. Rephrase the prompt in your own words.

@@ -3,7 +3,10 @@
  * Works incrementally during streaming - call on each chunk to update artifacts.
  */
 import DOMPurify from 'dompurify';
+import dbg from 'debug';
 import type { Format } from './types';
+
+const debug = dbg('app:artifacts');
 
 export type ExtractedArtifact = { body: string };
 

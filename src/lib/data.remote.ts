@@ -1,20 +1,16 @@
 import { command, getRequestEvent, query } from '$app/server';
 import * as db from '$lib/server/db';
-import { approvalValues, formatValues, statusValues } from '$lib/server/db/schema';
+import { accessValues, approvalValues, formatValues, statusValues } from '$lib/server/db/schema';
 import * as s3 from '$lib/server/s3';
 import { error } from '@sveltejs/kit';
-import dbg from 'debug';
 import * as v from 'valibot';
 
+import dbg from 'debug';
 const debug = dbg('app:remote');
 
 function getCurrentUserId(): string {
 	const { locals } = getRequestEvent();
 	return locals.user.id;
-}
-
-function assertUserIdMatches(userId: string): void {
-	if (userId !== getCurrentUserId()) error(403, 'Nice try hecker');
 }
 
 function assertAdmin(): void {
@@ -50,19 +46,20 @@ export const insertGeneration = command(
 		initialTemplate: v.string(),
 		refinementTemplate: v.string(),
 		maxSteps: v.number(),
-		sendFullHistory: v.boolean()
+		sendFullHistory: v.boolean(),
+		access: v.optional(v.picklist(accessValues))
 	}),
 	async (data) => {
 		const { locals } = getRequestEvent();
 		const userId = locals.user.id;
 		const isAnon = locals.user.isAnon;
-		// Anon users: all generations are shared/public/approved by default
-		// Registered users: private by default, can toggle later
-		const visibility = isAnon
-			? { shared: true, public: true, approval: 'approved' as const }
-			: { shared: false, public: false, approval: 'pending' as const };
+
+		// Anon users: all generations go to gallery for review
+		// Registered users: use provided or default to private
+		const access = isAnon ? 'gallery' : data.access
+
 		try {
-			return await db.db_insertGeneration({ ...data, userId, ...visibility });
+			return await db.db_insertGeneration({ ...data, userId, access, approval: 'pending' });
 		} finally {
 			debug('insertGeneration userId=%s isAnon=%s', userId, isAnon);
 		}
@@ -72,7 +69,6 @@ export const insertGeneration = command(
 export const updateGeneration = command(
 	v.object({
 		id: v.string(),
-		userId: v.string(),
 		prompt: v.optional(v.string()),
 		format: v.optional(v.picklist(formatValues)),
 		width: v.optional(v.number()),
@@ -84,16 +80,29 @@ export const updateGeneration = command(
 		refinementTemplate: v.optional(v.string()),
 		maxSteps: v.optional(v.number()),
 		sendFullHistory: v.optional(v.boolean()),
-		approval: v.optional(v.picklist(approvalValues))
+		approval: v.optional(v.picklist(approvalValues)),
+		access: v.optional(v.picklist(accessValues))
 	}),
 	async (data) => {
 		const { locals } = getRequestEvent();
+		const userId = locals.user.id;
 		const isAdmin = locals.user.isAdmin;
-		if (!isAdmin) assertUserIdMatches(data.userId);
+		const isAnon = locals.user.isAnon;
+
+		// Only admin can change approval
+		if (data.approval !== undefined && !isAdmin) {
+			error(403, 'Only admins can change approval status');
+		}
+
+		// Anon users can't change access
+		if (isAnon && data.access !== undefined) {
+			error(403, 'Anonymous users cannot change access');
+		}
+
 		try {
-			return await db.db_updateGeneration(data);
+			return await db.db_updateGeneration({ ...data, userId }, isAdmin);
 		} finally {
-			debug('updateGeneration id=%s', data.id);
+			debug('updateGeneration id=%s userId=%s isAdmin=%s', data.id, userId, isAdmin);
 		}
 	}
 );
@@ -140,24 +149,23 @@ export const getPublicGenerations = query(
 
 export const insertStep = command(
 	v.object({
-		userId: v.string(),
 		generationId: v.string(),
 		renderedPrompt: v.string(),
 		status: v.picklist(statusValues)
 	}),
 	async (data) => {
-		assertUserIdMatches(data.userId);
+		const { locals } = getRequestEvent();
+		const userId = locals.user.id;
 		try {
-			return await db.db_insertStep(data);
+			return await db.db_insertStep({ ...data, userId });
 		} finally {
-			debug('insertStep genId=%s', data.generationId);
+			debug('insertStep genId=%s userId=%s isAdmin=%s', data.generationId, userId);
 		}
 	}
 );
 
 export const updateStep = command(
 	v.object({
-		userId: v.string(),
 		id: v.number(),
 		renderedPrompt: v.optional(v.string()),
 		status: v.optional(v.picklist(statusValues)),
@@ -170,71 +178,16 @@ export const updateStep = command(
 		completedAt: v.optional(v.nullable(v.date()))
 	}),
 	async (data) => {
-		assertUserIdMatches(data.userId);
-		const { userId, ...stepData } = data;
+		const { locals } = getRequestEvent();
+		const userId = locals.user.id;
+		const isAdmin = locals.user.isAdmin;
 		try {
-			return await db.db_updateStep(stepData, userId);
+			return await db.db_updateStep(data, userId, isAdmin);
 		} finally {
-			debug('updateStep id=%d', data.id);
+			debug('updateStep id=%d userId=%s isAdmin=%s', data.id, userId, isAdmin);
 		}
 	}
 );
-
-export const getStep = query(v.object({ id: v.number() }), async ({ id }) => {
-	try {
-		return await db.db_getStep(id);
-	} finally {
-		debug('getStep id=%d', id);
-	}
-});
-
-export const getSteps = query(v.object({ generationId: v.string() }), async ({ generationId }) => {
-	try {
-		return await db.db_getSteps(generationId);
-	} finally {
-		debug('getSteps genId=%s', generationId);
-	}
-});
-
-// ============================================================================
-// Artifacts
-// ============================================================================
-
-export const getArtifact = query(v.object({ id: v.number() }), async ({ id }) => {
-	try {
-		return await db.db_getArtifact(id);
-	} finally {
-		debug('getArtifact id=%d', id);
-	}
-});
-
-export const getArtifacts = query(v.object({ stepId: v.number() }), async ({ stepId }) => {
-	try {
-		return await db.db_getArtifacts(stepId);
-	} finally {
-		debug('getArtifacts stepId=%d', stepId);
-	}
-});
-
-// ============================================================================
-// Images
-// ============================================================================
-
-export const getImage = query(v.object({ id: v.string() }), async ({ id }) => {
-	try {
-		return await db.db_getImage(id);
-	} finally {
-		debug('getImage id=%s', id);
-	}
-});
-
-export const getImagesForGeneration = query(v.object({ generationId: v.string() }), async ({ generationId }) => {
-	try {
-		return await db.db_getImagesForGeneration(generationId);
-	} finally {
-		debug('getImagesForGeneration genId=%s', generationId);
-	}
-});
 
 // ============================================================================
 // S3 Uploads (with DB integration)
@@ -242,13 +195,13 @@ export const getImagesForGeneration = query(v.object({ generationId: v.string() 
 
 export const uploadInputImage = command(
 	v.object({
-		userId: v.string(),
 		generationId: v.string(),
 		data: v.instance(Uint8Array),
 		extension: v.string()
 	}),
-	async ({ userId, generationId, data, extension }) => {
-		assertUserIdMatches(userId);
+	async ({ generationId, data, extension }) => {
+		const { locals } = getRequestEvent();
+		const userId = locals.user.id;
 		let key: string | undefined;
 		// Create standalone image record
 		const image = await db.db_insertImage(userId, extension);
@@ -262,14 +215,13 @@ export const uploadInputImage = command(
 			await db.db_deleteImage(image.id);
 			throw e;
 		} finally {
-			debug('uploadInputImage genId=%s imgId=%s key=%s', generationId, image.id, key);
+			debug('uploadInputImage genId=%s imgId=%s key=%s userId=%s', generationId, image.id, key, userId);
 		}
 	}
 );
 
 export const uploadArtifact = command(
 	v.object({
-		userId: v.string(),
 		generationId: v.string(),
 		stepId: v.number(),
 		content: v.string(),
@@ -277,8 +229,9 @@ export const uploadArtifact = command(
 		renderedData: v.optional(v.instance(Uint8Array)), // PNG bytes if rendering succeeded
 		renderError: v.optional(v.nullable(v.string())) // error message if rendering failed
 	}),
-	async ({ userId, generationId, stepId, content, format, renderedData, renderError }) => {
-		assertUserIdMatches(userId);
+	async ({ generationId, stepId, content, format, renderedData, renderError }) => {
+		const { locals } = getRequestEvent();
+		const userId = locals.user.id;
 		let key: string | undefined;
 		let renderedKey: string | undefined;
 		const artifact = await db.db_insertArtifact({ userId, stepId, body: content, renderError });
@@ -294,21 +247,21 @@ export const uploadArtifact = command(
 			await db.db_deleteArtifact(artifact.id);
 			throw e;
 		} finally {
-			debug('uploadArtifact genId=%s stepId=%d key=%s renderError=%s', generationId, stepId, key, renderError);
+			debug('uploadArtifact genId=%s stepId=%d key=%s userId=%s', generationId, stepId, key, userId);
 		}
 	}
 );
 
 export const linkImageToGeneration = command(
 	v.object({
-		userId: v.string(),
 		generationId: v.string(),
 		imageId: v.string()
 	}),
-	async ({ userId, generationId, imageId }) => {
-		assertUserIdMatches(userId);
+	async ({ generationId, imageId }) => {
+		const { locals } = getRequestEvent();
+		const userId = locals.user.id;
 		await db.db_linkImageToGeneration(userId, generationId, imageId);
-		debug('linkImageToGeneration genId=%s imgId=%s', generationId, imageId);
+		debug('linkImageToGeneration genId=%s imgId=%s userId=%s', generationId, imageId, userId);
 	}
 );
 
@@ -327,34 +280,92 @@ export const getAdminStats = query(async () => {
 	}
 });
 
-// ============================================================================
-// Visibility Toggles (for registered users)
-// ============================================================================
-
-export const setGenerationVisibility = command(
+// Provider CRUD (admin only)
+export const insertProvider = command(
 	v.object({
 		id: v.string(),
-		userId: v.string(),
-		shared: v.optional(v.boolean()),
-		public: v.optional(v.boolean())
+		label: v.string(),
+		sortOrder: v.optional(v.number())
 	}),
-	async ({ id, userId, shared, public: isPublic }) => {
-		assertUserIdMatches(userId);
-		// If setting public=true, also set shared=true (public implies shared)
-		// If setting public=true, auto-approve for now
-		const updates: { shared?: boolean; public?: boolean; approval?: 'approved' | 'pending' } = {};
-		if (shared !== undefined) updates.shared = shared;
-		if (isPublic !== undefined) {
-			updates.public = isPublic;
-			if (isPublic) {
-				updates.shared = true; // public implies shared
-				updates.approval = 'approved'; // auto-approve for now
-			}
-		}
+	async (data) => {
+		assertAdmin();
 		try {
-			return await db.db_updateGeneration({ id, userId, ...updates });
+			return await db.db_insertProvider(data);
 		} finally {
-			debug('setGenerationVisibility id=%s shared=%s public=%s', id, shared, isPublic);
+			debug('insertProvider id=%s', data.id);
 		}
 	}
 );
+
+export const updateProvider = command(
+	v.object({
+		id: v.string(),
+		label: v.optional(v.string()),
+		sortOrder: v.optional(v.number())
+	}),
+	async ({ id, ...data }) => {
+		assertAdmin();
+		try {
+			return await db.db_updateProvider(id, data);
+		} finally {
+			debug('updateProvider id=%s', id);
+		}
+	}
+);
+
+export const deleteProvider = command(v.object({ id: v.string() }), async ({ id }) => {
+	assertAdmin();
+	try {
+		await db.db_deleteProvider(id);
+	} finally {
+		debug('deleteProvider id=%s', id);
+	}
+});
+
+// Model CRUD (admin only)
+export const insertModel = command(
+	v.object({
+		providerId: v.string(),
+		value: v.string(),
+		label: v.string(),
+		inputPrice: v.optional(v.number()),
+		outputPrice: v.optional(v.number()),
+		supportsImages: v.optional(v.boolean())
+	}),
+	async (data) => {
+		assertAdmin();
+		try {
+			return await db.db_insertModel(data);
+		} finally {
+			debug('insertModel providerId=%s value=%s', data.providerId, data.value);
+		}
+	}
+);
+
+export const updateModel = command(
+	v.object({
+		id: v.number(),
+		value: v.optional(v.string()),
+		label: v.optional(v.string()),
+		inputPrice: v.optional(v.number()),
+		outputPrice: v.optional(v.number()),
+		supportsImages: v.optional(v.boolean())
+	}),
+	async ({ id, ...data }) => {
+		assertAdmin();
+		try {
+			return await db.db_updateModel(id, data);
+		} finally {
+			debug('updateModel id=%d', id);
+		}
+	}
+);
+
+export const deleteModel = command(v.object({ id: v.number() }), async ({ id }) => {
+	assertAdmin();
+	try {
+		await db.db_deleteModel(id);
+	} finally {
+		debug('deleteModel id=%d', id);
+	}
+});

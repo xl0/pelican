@@ -1,4 +1,6 @@
 <script lang="ts">
+import dbg from 'debug';
+	const debug = dbg('app:CostDisplay');
 	import * as Popover from '$lib/components/ui/popover';
 
 	interface Props {

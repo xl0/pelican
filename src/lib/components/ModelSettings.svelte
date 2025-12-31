@@ -1,4 +1,6 @@
 <script lang="ts">
+import dbg from 'debug';
+	const debug = dbg('app:ModelSettings');
 	import { app } from '$lib/appstate.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';

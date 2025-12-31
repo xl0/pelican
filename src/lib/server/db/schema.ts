@@ -1,16 +1,17 @@
 import { relations } from 'drizzle-orm';
 import { boolean, integer, pgSchema, primaryKey, real, serial, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
-import { approvalValues, formatValues, statusValues } from '$lib/types';
+import { accessValues, approvalValues, formatValues, statusValues } from '$lib/types';
 
 // Re-export for convenience
-export { approvalValues, formatValues, statusValues } from '$lib/types';
-export type { Approval, Format, Status } from '$lib/types';
+export { accessValues, approvalValues, formatValues, statusValues } from '$lib/types';
+export type { Access, Approval, Format, Status } from '$lib/types';
 
 export const pelican = pgSchema('pelican');
 
 export const formatEnum = pelican.enum('formats', [...formatValues]);
 export const statusEnum = pelican.enum('status', [...statusValues]);
 export const approvalEnum = pelican.enum('approval', [...approvalValues]);
+export const accessEnum = pelican.enum('access', [...accessValues]);
 
 // Auth tables
 export const users = pelican.table('users', {
@@ -88,9 +89,8 @@ export const generations = pelican.table('generations', {
 	// Generation options
 	maxSteps: integer('max_steps').notNull().default(5),
 	sendFullHistory: boolean('send_full_history').notNull().default(true),
-	// Visibility settings
-	shared: boolean('shared').notNull().default(false), // accessible by URL by anyone
-	public: boolean('public').notNull().default(false), // submitted for public gallery
+	// Visibility: private (owner only), shared (link access), gallery (public gallery)
+	access: accessEnum('access').notNull().default('gallery'),
 	approval: approvalEnum('approval').notNull().default('pending'), // pending/approved/rejected
 	createdAt: timestamp('created_at').notNull().defaultNow(),
 	updatedAt: timestamp('updated_at')

@@ -16,7 +16,7 @@ import {
 	type UpdateStep,
 	type NewArtifact
 } from './schema';
-import { eq, desc, asc, and, count, sql, or } from 'drizzle-orm';
+import { eq, desc, asc, and, count, sql, or, inArray } from 'drizzle-orm';
 import dbg from 'debug';
 import { users } from './schema';
 
@@ -37,6 +37,70 @@ export async function db_getProvidersWithModels() {
 		});
 	} finally {
 		debug('getProvidersWithModels');
+	}
+}
+
+// Provider CRUD
+export async function db_insertProvider(data: { id: string; label: string; sortOrder?: number }) {
+	try {
+		const res = await db.insert(providers).values(data).returning();
+		return res[0];
+	} finally {
+		debug('insertProvider id=%s', data.id);
+	}
+}
+
+export async function db_updateProvider(id: string, data: { label?: string; sortOrder?: number }) {
+	try {
+		const res = await db.update(providers).set(data).where(eq(providers.id, id)).returning();
+		return res[0];
+	} finally {
+		debug('updateProvider id=%s', id);
+	}
+}
+
+export async function db_deleteProvider(id: string) {
+	try {
+		await db.delete(providers).where(eq(providers.id, id));
+	} finally {
+		debug('deleteProvider id=%s', id);
+	}
+}
+
+// Model CRUD
+export async function db_insertModel(data: {
+	providerId: string;
+	value: string;
+	label: string;
+	inputPrice?: number;
+	outputPrice?: number;
+	supportsImages?: boolean;
+}) {
+	try {
+		const res = await db.insert(models).values(data).returning();
+		return res[0];
+	} finally {
+		debug('insertModel providerId=%s value=%s', data.providerId, data.value);
+	}
+}
+
+export async function db_updateModel(
+	id: number,
+	data: { value?: string; label?: string; inputPrice?: number; outputPrice?: number; supportsImages?: boolean }
+) {
+	try {
+		const res = await db.update(models).set(data).where(eq(models.id, id)).returning();
+		return res[0];
+	} finally {
+		debug('updateModel id=%d', id);
+	}
+}
+
+export async function db_deleteModel(id: number) {
+	try {
+		await db.delete(models).where(eq(models.id, id));
+	} finally {
+		debug('deleteModel id=%d', id);
 	}
 }
 
@@ -75,7 +139,7 @@ export async function db_getGenerations(userId: string, limit = 20, offset = 0) 
 
 export async function db_getPublicGenerations(limit = 20, offset = 0, approvalStatus?: 'approved' | 'pending' | 'rejected') {
 	try {
-		const conditions = [eq(generations.public, true)];
+		const conditions = [eq(generations.access, 'gallery')];
 		if (approvalStatus) {
 			conditions.push(eq(generations.approval, approvalStatus));
 		}
@@ -109,14 +173,11 @@ export async function db_getPublicGenerations(limit = 20, offset = 0, approvalSt
 	}
 }
 
-// Get generation - checks ownership or shared=true for public access
+// Get generation - checks ownership or access is not private
 export async function db_getGeneration(id: string, userId: string) {
 	try {
-		// Access: owner (userId matches) OR shared/public=true
-		const whereClause = and(
-			eq(generations.id, id),
-			or(eq(generations.userId, userId), eq(generations.shared, true), eq(generations.public, true))
-		);
+		// Access: owner (userId matches) OR access is 'shared' or 'gallery'
+		const whereClause = and(eq(generations.id, id), or(eq(generations.userId, userId), inArray(generations.access, ['shared', 'gallery'])));
 		return await db.query.generations.findFirst({
 			where: whereClause,
 			with: {
@@ -143,17 +204,14 @@ export async function db_insertGeneration(data: NewGeneration) {
 	}
 }
 
-export async function db_updateGeneration(data: UpdateGeneration) {
+export async function db_updateGeneration(data: UpdateGeneration, isAdmin = false) {
 	try {
 		const { id, userId, ...rest } = data;
-		const res = await db
-			.update(generations)
-			.set(rest)
-			.where(and(eq(generations.id, id), eq(generations.userId, userId)))
-			.returning();
+		const whereClause = isAdmin ? eq(generations.id, id) : and(eq(generations.id, id), eq(generations.userId, userId));
+		const res = await db.update(generations).set(rest).where(whereClause).returning();
 		return res[0];
 	} finally {
-		debug('updateGeneration id=%s userId=%s', data.id, data.userId);
+		debug('updateGeneration id=%s userId=%s isAdmin=%s', data.id, data.userId, isAdmin);
 	}
 }
 
@@ -161,34 +219,18 @@ export async function db_updateGeneration(data: UpdateGeneration) {
 // Steps
 // ============================================================================
 
-export async function db_getSteps(generationId: string) {
-	try {
-		return await db.select().from(steps).where(eq(steps.generationId, generationId)).orderBy(steps.id);
-	} finally {
-		debug('getSteps generationId=%s', generationId);
-	}
-}
-
-export async function db_getStep(id: number) {
-	try {
-		return await db.query.steps.findFirst({
-			where: eq(steps.id, id),
-			with: { artifacts: true }
-		});
-	} finally {
-		debug('getStep id=%d', id);
-	}
-}
-
 export async function db_insertStep(data: NewStep) {
 	let result: { id: number } | undefined;
 	try {
-		// Verify generation belongs to user before inserting
 		const gen = await db.query.generations.findFirst({
 			where: and(eq(generations.id, data.generationId), eq(generations.userId, data.userId)),
-			columns: { id: true }
+			columns: { id: true, userId: true }
 		});
 		if (!gen) throw new Error('Generation not found or not owned by user');
+
+		// Ensure step inherits user ID from generation
+		data.userId = gen.userId;
+
 		const res = await db.insert(steps).values(data).returning();
 		result = res[0];
 		return result;
@@ -197,17 +239,14 @@ export async function db_insertStep(data: NewStep) {
 	}
 }
 
-export async function db_updateStep(data: UpdateStep, userId: string) {
+export async function db_updateStep(data: UpdateStep, userId: string, isAdmin = false) {
 	try {
 		const { id, ...rest } = data;
-		const res = await db
-			.update(steps)
-			.set(rest)
-			.where(and(eq(steps.id, id), eq(steps.userId, userId)))
-			.returning();
+		const whereClause = isAdmin ? eq(steps.id, id) : and(eq(steps.id, id), eq(steps.userId, userId));
+		const res = await db.update(steps).set(rest).where(whereClause).returning();
 		return res[0];
 	} finally {
-		debug('updateStep id=%d userId=%s', data.id, userId);
+		debug('updateStep id=%d userId=%s isAdmin=%s', data.id, userId, isAdmin);
 	}
 }
 
@@ -215,32 +254,18 @@ export async function db_updateStep(data: UpdateStep, userId: string) {
 // Artifacts
 // ============================================================================
 
-export async function db_getArtifacts(stepId: number) {
-	try {
-		return await db.select().from(artifacts).where(eq(artifacts.stepId, stepId)).orderBy(artifacts.id);
-	} finally {
-		debug('getArtifacts stepId=%d', stepId);
-	}
-}
-
-export async function db_getArtifact(id: number) {
-	try {
-		const res = await db.select().from(artifacts).where(eq(artifacts.id, id));
-		return res[0];
-	} finally {
-		debug('getArtifact id=%d', id);
-	}
-}
-
 export async function db_insertArtifact(data: NewArtifact) {
 	let result: { id: number } | undefined;
 	try {
-		// Verify step belongs to user before inserting
+		// Verify step exists and belongs to user (unless admin)
 		const step = await db.query.steps.findFirst({
 			where: and(eq(steps.id, data.stepId), eq(steps.userId, data.userId)),
-			columns: { id: true }
+			columns: { id: true, userId: true }
 		});
 		if (!step) throw new Error('Step not found or not owned by user');
+
+		data.userId = step.userId;
+
 		const res = await db.insert(artifacts).values(data).returning();
 		result = res[0];
 		return result;
@@ -260,26 +285,6 @@ export async function db_deleteArtifact(id: number) {
 // ============================================================================
 // Images
 // ============================================================================
-
-export async function db_getImagesForGeneration(generationId: string) {
-	try {
-		const links = await db.query.generationImages.findMany({
-			where: eq(generationImages.generationId, generationId),
-			with: { image: true }
-		});
-		return links.map((l) => l.image);
-	} finally {
-		debug('getImagesForGeneration genId=%s', generationId);
-	}
-}
-
-export async function db_getImage(id: string) {
-	try {
-		return await db.query.images.findFirst({ where: eq(images.id, id) });
-	} finally {
-		debug('getImage id=%s', id);
-	}
-}
 
 export async function db_insertImage(userId: string, extension: string) {
 	let result: { id: string } | undefined;
@@ -348,18 +353,18 @@ export async function db_getAdminStats() {
 					approved: sql<number>`count(*) filter (where ${generations.approval} = 'approved')::int`,
 					pending: sql<number>`count(*) filter (where ${generations.approval} = 'pending')::int`,
 					rejected: sql<number>`count(*) filter (where ${generations.approval} = 'rejected')::int`,
-					public: sql<number>`count(*) filter (where ${generations.public} = true)::int`,
-					shared: sql<number>`count(*) filter (where ${generations.shared} = true)::int`
+					gallery: sql<number>`count(*) filter (where ${generations.access} = 'gallery')::int`,
+					shared: sql<number>`count(*) filter (where ${generations.access} in ('shared', 'gallery'))::int`
 				})
 				.from(generations),
 			db
 				.select({ count: sql<number>`count(*)::int` })
 				.from(generations)
-				.where(and(eq(generations.public, true), eq(generations.approval, 'pending')))
+				.where(and(eq(generations.access, 'gallery'), eq(generations.approval, 'pending')))
 		]);
 		return {
 			users: userStats[0] ?? { total: 0, anon: 0, registered: 0 },
-			generations: genStats[0] ?? { total: 0, approved: 0, pending: 0, rejected: 0, public: 0, shared: 0 },
+			generations: genStats[0] ?? { total: 0, approved: 0, pending: 0, rejected: 0, gallery: 0, shared: 0 },
 			pendingModeration: pendingCount[0]?.count ?? 0
 		};
 	} finally {

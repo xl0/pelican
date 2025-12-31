@@ -1,4 +1,6 @@
 <script lang="ts">
+import dbg from 'debug';
+	const debug = dbg('app:Header');
 	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
 	import type { Snippet } from 'svelte';

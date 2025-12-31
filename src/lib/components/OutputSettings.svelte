@@ -1,4 +1,6 @@
 <script lang="ts">
+import dbg from 'debug';
+	const debug = dbg('app:OutputSettings');
 	import { app } from '$lib/appstate.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';

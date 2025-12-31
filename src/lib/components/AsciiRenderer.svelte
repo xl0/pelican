@@ -1,6 +1,8 @@
 <script lang="ts">
 	import * as p from '$lib/persisted.svelte';
 	import { AsciiArt } from 'svelte-asciiart';
+	import dbg from 'debug';
+	const debug = dbg('app:AsciiRenderer');
 
 	let { text, rows, cols, margin = 1, fontWeight = undefined, textStrokeWidth = undefined, ...rest } = $props();
 </script>

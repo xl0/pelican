@@ -1,4 +1,6 @@
 <script lang="ts">
+import dbg from 'debug';
+	const debug = dbg('app:PromptInput');
 	import { app } from '$lib/appstate.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as ImageZoom from '$lib/components/ui/image-zoom';

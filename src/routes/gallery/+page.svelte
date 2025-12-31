@@ -1,4 +1,6 @@
 <script lang="ts">
+import dbg from 'debug';
+	const debug = dbg('app:page');
 	import GalleryGrid from '$lib/components/GalleryGrid.svelte';
 	import Header from '$lib/components/Header.svelte';
 	import { getPublicGenerations } from '$lib/data.remote';

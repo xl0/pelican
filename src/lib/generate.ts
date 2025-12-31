@@ -76,7 +76,7 @@ export interface GenerateResult {
  * Creates generation in DB, streams each step, renders artifacts as images,
  * sends them back for refinement until maxSteps is reached.
  */
-export async function generate(userId: string): Promise<GenerateResult> {
+export async function generate(): Promise<GenerateResult> {
 	const gen = app.currentGeneration;
 	if (!gen) throw new Error('No current generation');
 
@@ -117,10 +117,11 @@ export async function generate(userId: string): Promise<GenerateResult> {
 			initialTemplate: gen.initialTemplate,
 			refinementTemplate: gen.refinementTemplate,
 			maxSteps: gen.maxSteps,
-			sendFullHistory: gen.sendFullHistory
+			sendFullHistory: gen.sendFullHistory,
+			access: gen.access
 		});
 		generationId = dbGen.id;
-		gen.id = generationId;
+		gen.id = dbGen.id;
 		debug('Created generation', { generationId });
 
 		// 3. Collect input image parts for LLM (URL for existing, Uint8Array for new)
@@ -131,7 +132,7 @@ export async function generate(userId: string): Promise<GenerateResult> {
 			const ext = file.name.split('.').pop() || 'png';
 			const buffer = await file.arrayBuffer();
 			const data = new Uint8Array(buffer) as Uint8Array<ArrayBuffer>;
-			const uploaded = await uploadInputImage({ userId, generationId, data, extension: ext });
+			const uploaded = await uploadInputImage({ generationId, data, extension: ext });
 			// Add to gen.images so we have the ID
 			gen.images = [...gen.images, { id: uploaded.id, extension: ext }];
 			// Use URL for consistency
@@ -146,7 +147,7 @@ export async function generate(userId: string): Promise<GenerateResult> {
 			for (const img of gen.images) {
 				const url = getInputImageUrl(img.id, img.extension);
 				inputImageParts.push({ type: 'image', image: new URL(url, window.location.origin) });
-				await linkImageToGeneration({ userId, generationId, imageId: img.id });
+				await linkImageToGeneration({ generationId, imageId: img.id });
 				debug('Added existing image', { id: img.id });
 			}
 		}
@@ -209,7 +210,6 @@ export async function generate(userId: string): Promise<GenerateResult> {
 
 			// Insert step in DB
 			const dbStep = await insertStep({
-				userId,
 				generationId,
 				renderedPrompt,
 				status: 'generating'
@@ -285,7 +285,6 @@ export async function generate(userId: string): Promise<GenerateResult> {
 			// Update step in DB
 			debug('Updating step in DB', { stepId: dbStep.id, rawOutputLen: (step.rawOutput ?? '').length });
 			await updateStep({
-				userId,
 				id: dbStep.id,
 				status: 'completed',
 				rawOutput: step.rawOutput ?? '',
@@ -315,7 +314,6 @@ export async function generate(userId: string): Promise<GenerateResult> {
 				}
 
 				const uploaded = await uploadArtifact({
-					userId,
 					generationId,
 					stepId: dbStep.id,
 					content: art.body,
@@ -356,7 +354,6 @@ export async function generate(userId: string): Promise<GenerateResult> {
 		const lastStep = gen.steps?.[gen.steps.length - 1];
 		if (lastStep?.id) {
 			await updateStep({
-				userId,
 				id: lastStep.id,
 				status: 'failed',
 				errorMessage: errorMsg

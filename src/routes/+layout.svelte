@@ -20,12 +20,11 @@
 	import { Label } from '$lib/components/ui/label';
 	import { Separator } from '$lib/components/ui/separator';
 	import { Switch } from '$lib/components/ui/switch';
-	import { getGeneration } from '$lib/data.remote';
+	import { getGeneration, updateGeneration } from '$lib/data.remote';
 	import { generate } from '$lib/generate';
 	import * as p from '$lib/persisted.svelte';
 	import { BookType, ChevronDown, Link, SquareTerminal, WandSparkles } from '@lucide/svelte';
 	import dbg from 'debug';
-
 	const debug = dbg('app:layout');
 
 	let { data, children } = $props();
@@ -125,21 +124,11 @@
 								{/if}
 							</div>
 							<div class="flex items-center gap-2 md:gap-4">
-								{#if app.currentGeneration?.id && app.currentGeneration.userId === data.user.id && !data.user.isAnon}
+								{#if app.currentGeneration && (!app.currentGeneration.id || app.currentGeneration.userId === data.user.id) && !data.user.isAnon}
 									{@const gen = app.currentGeneration}
 									<div class="flex items-center gap-2">
 										<div class="flex items-center gap-2" title="Share link">
-											<Label for="shared-toggle" class="text-xs font-medium text-foreground">Share</Label>
-											<Switch
-												id="shared-toggle"
-												class=""
-												checked={gen.shared}
-												onCheckedChange={async (checked) => {
-													const { setGenerationVisibility } = await import('$lib/data.remote');
-													await setGenerationVisibility({ id: gen.id!, userId: data.user.id, shared: checked });
-													gen.shared = checked;
-												}} />
-											{#if gen.shared}
+											{#if gen.access === 'shared' || gen.access === 'gallery'}
 												<Button
 													variant="ghost"
 													size="icon"
@@ -152,18 +141,28 @@
 													<Link class="h-3.5 w-3.5" />
 												</Button>
 											{/if}
+
+											<Label for="shared-toggle" class="text-xs font-medium text-foreground">Share</Label>
+											<Switch
+												id="shared-toggle"
+												checked={gen.access === 'shared' || gen.access === 'gallery'}
+												onCheckedChange={async (checked) => {
+													gen.access = checked ? 'shared' : 'private';
+													if (gen.id) {
+														await updateGeneration({ id: gen.id, access: gen.access });
+													}
+												}} />
 										</div>
 										<div class="flex items-center gap-2" title="Public gallery">
-											<Label for="public-toggle" class="text-xs font-medium text-foreground">Submit to gallery</Label>
+											<Label for="gallery-toggle" class="text-xs font-medium text-foreground">Gallery</Label>
 											<Switch
-												id="public-toggle"
-												class="h-5 w-9"
-												checked={gen.public}
+												id="gallery-toggle"
+												checked={gen.access === 'gallery'}
 												onCheckedChange={async (checked) => {
-													const { setGenerationVisibility } = await import('$lib/data.remote');
-													await setGenerationVisibility({ id: gen.id!, userId: data.user.id, public: checked });
-													gen.public = checked;
-													if (checked) gen.shared = true; // public implies shared
+													gen.access = checked ? 'gallery' : gen.access === 'gallery' ? 'shared' : gen.access;
+													if (gen.id) {
+														await updateGeneration({ id: gen.id, access: gen.access });
+													}
 												}} />
 										</div>
 									</div>
@@ -198,13 +197,13 @@
 						style="direction: rtl;">
 						<div class="space-y-3 px-1 md:px-3 pb-3 min-w-0" style="direction: ltr;">
 							<!-- Prompt Section (includes images) -->
-							<PromptInput onsubmit={() => generate(data.user.id)} />
+							<PromptInput onsubmit={() => generate()} />
 
 							<div class="pt-1">
 								<Button
 									class="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-sm"
 									disabled={app.isGenerating}
-									onclick={() => generate(data.user.id)}>
+									onclick={() => generate()}>
 									{#if app.isGenerating}
 										<WandSparkles class="mr-2 h-4 w-4 animate-spin" />
 										Generating...
@@ -243,8 +242,6 @@
 								</Collapsible.Content>
 							</Collapsible.Root>
 
-							<!-- Cost Display -->
-							<!-- <CostDisplay /> -->
 							<!-- <DebugAsciiRender /> -->
 						</div>
 					</div>

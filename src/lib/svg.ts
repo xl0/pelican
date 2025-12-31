@@ -1,3 +1,5 @@
+import dbg from 'debug';
+const debug = dbg('app:svg');
 import { mount, unmount } from 'svelte';
 import AsciiRenderer from './components/AsciiRenderer.svelte';
 

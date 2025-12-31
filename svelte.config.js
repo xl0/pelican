@@ -23,9 +23,9 @@ const config = {
 		// 	async: true
 		// }
 	},
-	// vitePlugin: {
-	// 	inspector: true
-	// }
+	vitePlugin: {
+		inspector: true
+	}
 };
 
 export default config;

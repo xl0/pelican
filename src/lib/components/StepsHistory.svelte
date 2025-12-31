@@ -1,4 +1,6 @@
 <script lang="ts">
+import dbg from 'debug';
+	const debug = dbg('app:StepsHistory');
 	import { app } from '$lib/appstate.svelte';
 	import AsciiRenderer from './AsciiRenderer.svelte';
 

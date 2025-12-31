@@ -1,4 +1,6 @@
 <script lang="ts">
+import dbg from 'debug';
+	const debug = dbg('app:CopyButton');
 	import { Check, Copy } from '@lucide/svelte';
 
 	let { text, class: className = '' }: { text: string | undefined; class?: string } = $props();

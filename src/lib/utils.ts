@@ -1,3 +1,5 @@
+import dbg from 'debug';
+const debug = dbg('app:utils');
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { PUBLIC_CLOUDFRONT_URL } from '$env/static/public';

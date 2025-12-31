@@ -1,4 +1,6 @@
 <script lang="ts">
+import dbg from 'debug';
+	const debug = dbg('app:PromptTermplates');
 	import { app } from '$lib/appstate.svelte';
 	import PromptEditor from '$lib/components/PromptEditor.svelte';
 	import * as p from '$lib/persisted.svelte';

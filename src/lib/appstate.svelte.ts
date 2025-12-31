@@ -42,8 +42,7 @@ export function generationFromPersisted(): CurrentGeneration {
 		maxSteps: p.maxSteps.current,
 		sendFullHistory: p.sendFullHistory.current,
 		// Visibility (actual values set server-side based on user type)
-		shared: false,
-		public: false,
+		access: 'gallery' as const,
 		approval: 'pending' as const,
 		// Relations (empty for new generation)
 		steps: [],

@@ -8,6 +8,9 @@
 	import { toast } from 'svelte-sonner';
 	import AsciiRenderer from './AsciiRenderer.svelte';
 
+	import dbg from 'debug';
+	const debug = dbg('app:ArtifactPreview');
+
 	// Get the current artifact to display
 	const currentArtifact = $derived.by(() => {
 		const steps = app.currentGeneration?.steps;
