@@ -43,11 +43,11 @@
 		"vite-plugin-devtools-json": "^1.0.0"
 	},
 	"dependencies": {
-		"@ai-sdk/anthropic": "^3.0.1",
-		"@ai-sdk/google": "^3.0.1",
-		"@ai-sdk/openai": "^3.0.1",
-		"@ai-sdk/openai-compatible": "^2.0.1",
-		"@ai-sdk/xai": "^3.0.2",
+		"@ai-sdk/anthropic": "^3.0.2",
+		"@ai-sdk/google": "^3.0.2",
+		"@ai-sdk/openai": "^3.0.2",
+		"@ai-sdk/openai-compatible": "^2.0.2",
+		"@ai-sdk/xai": "^3.0.3",
 		"@aws-sdk/client-s3": "^3.958.0",
 		"@codemirror/commands": "^6.10.1",
 		"@codemirror/lang-jinja": "^6.0.0",
@@ -62,7 +62,7 @@
 		"@oslojs/encoding": "^1.1.0",
 		"@types/debug": "^4.1.12",
 		"@types/nunjucks": "^3.2.6",
-		"ai": "^6.0.3",
+		"ai": "^6.0.5",
 		"date-fns": "^4.1.0",
 		"debug": "^4.4.3",
 		"dompurify": "^3.3.1",
@@ -71,7 +71,7 @@
 		"nunjucks": "^3.2.4",
 		"postgres": "^3.4.7",
 		"runed": "^0.37.1",
-		"svelte-asciiart": "^0.0.2",
+		"svelte-asciiart": "^0.0.5",
 		"svelte-codemirror-editor": "^2.1.0",
 		"valibot": "^1.2.0"
 	}

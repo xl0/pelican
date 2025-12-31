@@ -27,7 +27,8 @@ import {
 	getProvidersWithModels
 } from './data.remote';
 import * as p from './persisted.svelte';
-import { svgToPngBlob, asciiToPngBlob } from './svg';
+import { svgStringToPng } from 'svelte-asciiart';
+import { asciiToPngBlob } from './svg';
 import { getInputImageUrl } from './utils';
 import type { Format } from './types';
 
@@ -57,11 +58,11 @@ function getModelInstance(provider: string, modelId: string, apiKey: string, end
 }
 
 /** Render artifact body to PNG Blob */
-async function renderArtifactToBlob(body: string, format: Format, width: number, height: number): Promise<Blob> {
+async function renderArtifactToBlob(body: string, format: Format, cols: number, rows: number): Promise<Blob> {
 	if (format === 'svg') {
-		return svgToPngBlob(body, width, height);
+		return svgStringToPng(body, { output: 'blob' });
 	} else {
-		return asciiToPngBlob(body, width, height);
+		return asciiToPngBlob(body, cols, rows);
 	}
 }
 

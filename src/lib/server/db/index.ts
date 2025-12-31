@@ -16,7 +16,7 @@ import {
 	type UpdateStep,
 	type NewArtifact
 } from './schema';
-import { eq, desc, asc, and, count, sql, or, inArray } from 'drizzle-orm';
+import { eq, desc, asc, and, count, sql, or, ne } from 'drizzle-orm';
 import dbg from 'debug';
 import { users } from './schema';
 
@@ -176,8 +176,8 @@ export async function db_getPublicGenerations(limit = 20, offset = 0, approvalSt
 // Get generation - checks ownership or access is not private
 export async function db_getGeneration(id: string, userId: string) {
 	try {
-		// Access: owner (userId matches) OR access is 'shared' or 'gallery'
-		const whereClause = and(eq(generations.id, id), or(eq(generations.userId, userId), inArray(generations.access, ['shared', 'gallery'])));
+		// Access: owner (userId matches) OR access is not 'private'
+		const whereClause = and(eq(generations.id, id), or(eq(generations.userId, userId), ne(generations.access, 'private')));
 		return await db.query.generations.findFirst({
 			where: whereClause,
 			with: {
