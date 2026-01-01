@@ -1,5 +1,5 @@
 <script lang="ts">
-import dbg from 'debug';
+	import dbg from 'debug';
 	const debug = dbg('app:RawOutput');
 	import { app } from '$lib/appstate.svelte';
 	import CopyButton from '$lib/components/CopyButton.svelte';

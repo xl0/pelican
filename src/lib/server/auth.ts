@@ -104,7 +104,7 @@ export async function validateSessionToken(token: string): Promise<{ session: ta
 	}
 
 	// Refresh session if registered user and near expiry (within 15 days)
-	if (!user.isAnon) {
+	if (user.isRegistered) {
 		const renewSession = Date.now() >= session.expiresAt.getTime() - DAY_IN_MS * 15;
 		if (renewSession) {
 			session.expiresAt = new Date(Date.now() + DAY_IN_MS * REGISTERED_SESSION_DAYS);
@@ -146,4 +146,56 @@ export async function getOrCreateUser(userId: string): Promise<table.User> {
 	if (existing) return existing;
 	const [user] = await db.insert(table.users).values({ id: userId }).returning();
 	return user;
+}
+
+/** Extract user metadata from a request event for tracking/analytics */
+export function extractMetadata(event: RequestEvent): UserMetadata {
+	const url = new URL(event.request.url);
+	return {
+		ip: event.getClientAddress(),
+		userAgent: event.request.headers.get('user-agent') ?? undefined,
+		referrer: event.request.headers.get('referer') ?? undefined,
+		acceptLanguage: event.request.headers.get('accept-language') ?? undefined,
+		platform: event.request.headers.get('sec-ch-ua-platform')?.replace(/"/g, '') ?? undefined,
+		isMobile: event.request.headers.get('sec-ch-ua-mobile') === '?1',
+		utmSource: url.searchParams.get('utm_source') ?? undefined,
+		utmMedium: url.searchParams.get('utm_medium') ?? undefined,
+		utmCampaign: url.searchParams.get('utm_campaign') ?? undefined,
+		landingPage: url.pathname
+	};
+}
+
+/**
+ * Ensure a user exists for the current request. If no user session exists,
+ * creates an anonymous user with session and sets the cookie.
+ * Call this in commands that require a user identity.
+ *
+ * Synchronized: if multiple commands call this in parallel, only one user is created.
+ */
+export async function ensureUser(event: RequestEvent): Promise<{ user: table.User; session: table.Session }> {
+	// Already have a user from hooks (valid session existed)
+	if (event.locals.user && event.locals.session) {
+		return { user: event.locals.user, session: event.locals.session };
+	}
+
+	// If creation is already in progress, wait for it
+	if (event.locals.pendingUserCreation) {
+		return event.locals.pendingUserCreation;
+	}
+
+	// Start user creation and store the promise
+	const creationPromise = (async () => {
+		const metadata = extractMetadata(event);
+		const { user, session, token } = await createAnonymousUserWithSession(metadata);
+		setSessionTokenCookie(event, token, session.expiresAt);
+
+		// Update locals so subsequent calls in same request see the user
+		event.locals.user = user;
+		event.locals.session = session;
+
+		return { user, session };
+	})();
+
+	event.locals.pendingUserCreation = creationPromise;
+	return creationPromise;
 }

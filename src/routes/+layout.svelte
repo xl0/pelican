@@ -89,7 +89,7 @@
 	<div class="fixed inset-0 bg-background p-2 md:p-3 font-sans overflow-hidden flex flex-col">
 		<div class="mx-auto w-full max-w-7xl gap-2 md:gap-3 flex flex-col flex-1 min-h-0">
 			<div class="pb-2 border-b border-border">
-				<Header isAdmin={data.user.isAdmin} />
+				<Header isAdmin={data.user?.isAdmin ?? false} />
 			</div>
 
 			{#if app.currentGeneration}
@@ -126,7 +126,7 @@
 								{/if}
 							</div>
 							<div class="flex items-center gap-2 md:gap-4">
-								{#if app.currentGeneration && (!app.currentGeneration.id || app.currentGeneration.userId === data.user.id) && !data.user.isAnon}
+								{#if app.currentGeneration && (!app.currentGeneration.id || app.currentGeneration.userId === data.user?.id) && data.user?.isRegistered}
 									{@const gen = app.currentGeneration}
 									<div class="flex items-center gap-2">
 										<div class="flex items-center gap-2" title="Share link">

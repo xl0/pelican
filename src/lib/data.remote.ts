@@ -2,20 +2,28 @@ import { command, getRequestEvent, query } from '$app/server';
 import * as db from '$lib/server/db';
 import { accessValues, approvalValues, formatValues, statusValues } from '$lib/server/db/schema';
 import * as s3 from '$lib/server/s3';
+import * as auth from '$lib/server/auth';
 import { error } from '@sveltejs/kit';
 import * as v from 'valibot';
 
 import dbg from 'debug';
 const debug = dbg('app:remote');
 
-function getCurrentUserId(): string {
+/** Get current user ID or null if no user session exists. For queries that can work anonymously. */
+function getCurrentUserIdOrNull(): string | null {
 	const { locals } = getRequestEvent();
-	return locals.user.id;
+	return locals.user?.id ?? null;
+}
+
+/** Ensure a user exists (creating one if needed). For commands that require a user. */
+async function ensureCurrentUser() {
+	const event = getRequestEvent();
+	return auth.ensureUser(event);
 }
 
 function assertAdmin(): void {
 	const { locals } = getRequestEvent();
-	if (!locals.user.isAdmin) error(403, 'Admin access required');
+	if (!locals.user?.isAdmin) error(403, 'Admin access required');
 }
 
 // ============================================================================
@@ -50,18 +58,16 @@ export const insertGeneration = command(
 		access: v.optional(v.picklist(accessValues))
 	}),
 	async (data) => {
-		const { locals } = getRequestEvent();
-		const userId = locals.user.id;
-		const isAnon = locals.user.isAnon;
+		const { user } = await ensureCurrentUser();
 
 		// Anon users: all generations go to gallery for review
 		// Registered users: use provided or default to private
-		const access = isAnon ? 'gallery' : data.access;
+		const access = user.isRegistered ? data.access : 'gallery';
 
 		try {
-			return await db.db_insertGeneration({ ...data, userId, access, approval: 'pending' });
+			return await db.db_insertGeneration({ ...data, userId: user.id, access, approval: 'pending' });
 		} finally {
-			debug('insertGeneration userId=%s isAnon=%s', userId, isAnon);
+			debug('insertGeneration userId=%s isRegistered=%s', user.id, user.isRegistered);
 		}
 	}
 );
@@ -84,31 +90,28 @@ export const updateGeneration = command(
 		access: v.optional(v.picklist(accessValues))
 	}),
 	async (data) => {
-		const { locals } = getRequestEvent();
-		const userId = locals.user.id;
-		const isAdmin = locals.user.isAdmin;
-		const isAnon = locals.user.isAnon;
+		const { user } = await ensureCurrentUser();
 
 		// Only admin can change approval
-		if (data.approval !== undefined && !isAdmin) {
+		if (data.approval !== undefined && !user.isAdmin) {
 			error(403, 'Only admins can change approval status');
 		}
 
 		// Anon users can't change access
-		if (isAnon && data.access !== undefined) {
+		if (!user.isRegistered && data.access !== undefined) {
 			error(403, 'Anonymous users cannot change access');
 		}
 
 		try {
-			return await db.db_updateGeneration({ ...data, userId }, isAdmin);
+			return await db.db_updateGeneration({ ...data, userId: user.id }, user.isAdmin);
 		} finally {
-			debug('updateGeneration id=%s userId=%s isAdmin=%s', data.id, userId, isAdmin);
+			debug('updateGeneration id=%s userId=%s isAdmin=%s', data.id, user.id, user.isAdmin);
 		}
 	}
 );
 
 export const getGeneration = query(v.object({ id: v.string() }), async ({ id }) => {
-	const userId = getCurrentUserId();
+	const userId = getCurrentUserIdOrNull();
 	try {
 		return await db.db_getGeneration(id, userId);
 	} finally {
@@ -119,7 +122,8 @@ export const getGeneration = query(v.object({ id: v.string() }), async ({ id }) 
 export const getGenerations = query(
 	v.object({ limit: v.optional(v.number()), offset: v.optional(v.number()) }),
 	async ({ limit, offset }) => {
-		const userId = getCurrentUserId();
+		const userId = getCurrentUserIdOrNull();
+		if (!userId) return { items: [], count: 0 }; // No user = no history
 		try {
 			return await db.db_getGenerations(userId, limit, offset);
 		} finally {
@@ -154,12 +158,11 @@ export const insertStep = command(
 		status: v.picklist(statusValues)
 	}),
 	async (data) => {
-		const { locals } = getRequestEvent();
-		const userId = locals.user.id;
+		const { user } = await ensureCurrentUser();
 		try {
-			return await db.db_insertStep({ ...data, userId });
+			return await db.db_insertStep({ ...data, userId: user.id });
 		} finally {
-			debug('insertStep genId=%s userId=%s isAdmin=%s', data.generationId, userId);
+			debug('insertStep genId=%s userId=%s', data.generationId, user.id);
 		}
 	}
 );
@@ -178,13 +181,11 @@ export const updateStep = command(
 		completedAt: v.optional(v.nullable(v.date()))
 	}),
 	async (data) => {
-		const { locals } = getRequestEvent();
-		const userId = locals.user.id;
-		const isAdmin = locals.user.isAdmin;
+		const { user } = await ensureCurrentUser();
 		try {
-			return await db.db_updateStep(data, userId, isAdmin);
+			return await db.db_updateStep(data, user.id, user.isAdmin);
 		} finally {
-			debug('updateStep id=%d userId=%s isAdmin=%s', data.id, userId, isAdmin);
+			debug('updateStep id=%d userId=%s isAdmin=%s', data.id, user.id, user.isAdmin);
 		}
 	}
 );
@@ -200,22 +201,21 @@ export const uploadInputImage = command(
 		extension: v.string()
 	}),
 	async ({ generationId, data, extension }) => {
-		const { locals } = getRequestEvent();
-		const userId = locals.user.id;
+		const { user } = await ensureCurrentUser();
 		let key: string | undefined;
 		// Create standalone image record
-		const image = await db.db_insertImage(userId, extension);
+		const image = await db.db_insertImage(user.id, extension);
 		try {
 			// Upload to S3 (path: input/{imageId}.{ext})
 			key = await s3.uploadInputImage(image.id, data, extension);
 			// Link image to generation
-			await db.db_linkImageToGeneration(userId, generationId, image.id);
+			await db.db_linkImageToGeneration(user.id, generationId, image.id);
 			return { id: image.id, key };
 		} catch (e) {
 			await db.db_deleteImage(image.id);
 			throw e;
 		} finally {
-			debug('uploadInputImage genId=%s imgId=%s key=%s userId=%s', generationId, image.id, key, userId);
+			debug('uploadInputImage genId=%s imgId=%s key=%s userId=%s', generationId, image.id, key, user.id);
 		}
 	}
 );
@@ -230,11 +230,10 @@ export const uploadArtifact = command(
 		renderError: v.optional(v.nullable(v.string())) // error message if rendering failed
 	}),
 	async ({ generationId, stepId, content, format, renderedData, renderError }) => {
-		const { locals } = getRequestEvent();
-		const userId = locals.user.id;
+		const { user } = await ensureCurrentUser();
 		let key: string | undefined;
 		let renderedKey: string | undefined;
-		const artifact = await db.db_insertArtifact({ userId, stepId, body: content, renderError });
+		const artifact = await db.db_insertArtifact({ userId: user.id, stepId, body: content, renderError });
 		try {
 			// Upload SVG/ASCII artifact
 			key = await s3.uploadStepArtifact(generationId, stepId, artifact.id, content, format);
@@ -247,7 +246,7 @@ export const uploadArtifact = command(
 			await db.db_deleteArtifact(artifact.id);
 			throw e;
 		} finally {
-			debug('uploadArtifact genId=%s stepId=%d key=%s userId=%s', generationId, stepId, key, userId);
+			debug('uploadArtifact genId=%s stepId=%d key=%s userId=%s', generationId, stepId, key, user.id);
 		}
 	}
 );
@@ -258,10 +257,9 @@ export const linkImageToGeneration = command(
 		imageId: v.string()
 	}),
 	async ({ generationId, imageId }) => {
-		const { locals } = getRequestEvent();
-		const userId = locals.user.id;
-		await db.db_linkImageToGeneration(userId, generationId, imageId);
-		debug('linkImageToGeneration genId=%s imgId=%s userId=%s', generationId, imageId, userId);
+		const { user } = await ensureCurrentUser();
+		await db.db_linkImageToGeneration(user.id, generationId, imageId);
+		debug('linkImageToGeneration genId=%s imgId=%s userId=%s', generationId, imageId, user.id);
 	}
 );
 

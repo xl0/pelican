@@ -174,10 +174,13 @@ export async function db_getPublicGenerations(limit = 20, offset = 0, approvalSt
 }
 
 // Get generation - checks ownership or access is not private
-export async function db_getGeneration(id: string, userId: string) {
+export async function db_getGeneration(id: string, userId: string | null) {
 	try {
 		// Access: owner (userId matches) OR access is not 'private'
-		const whereClause = and(eq(generations.id, id), or(eq(generations.userId, userId), ne(generations.access, 'private')));
+		// Ternary needed because Drizzle's eq() typing rejects null for non-nullable columns
+		const whereClause = userId
+			? and(eq(generations.id, id), or(eq(generations.userId, userId), ne(generations.access, 'private')))
+			: and(eq(generations.id, id), ne(generations.access, 'private'));
 		return await db.query.generations.findFirst({
 			where: whereClause,
 			with: {
@@ -343,8 +346,8 @@ export async function db_getAdminStats() {
 			db
 				.select({
 					total: sql<number>`count(*)::int`,
-					anon: sql<number>`count(*) filter (where ${users.isAnon} = true)::int`,
-					registered: sql<number>`count(*) filter (where ${users.isAnon} = false)::int`
+					anon: sql<number>`count(*) filter (where ${users.isRegistered} = false)::int`,
+					registered: sql<number>`count(*) filter (where ${users.isRegistered} = true)::int`
 				})
 				.from(users),
 			db

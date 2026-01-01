@@ -1,5 +1,5 @@
 <script lang="ts">
-import dbg from 'debug';
+	import dbg from 'debug';
 	const debug = dbg('app:page');
 	import GalleryGrid from '$lib/components/GalleryGrid.svelte';
 	import Header from '$lib/components/Header.svelte';
@@ -22,7 +22,7 @@ import dbg from 'debug';
 <div class="min-h-screen bg-background">
 	<div class="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-10">
 		<div class="mx-auto max-w-7xl px-3 py-3">
-			<Header isAdmin={data.user.isAdmin} />
+			<Header isAdmin={data.user?.isAdmin ?? false} />
 		</div>
 	</div>
 

@@ -5,22 +5,6 @@ import dbg from 'debug';
 
 const debug = dbg('app:hooks');
 
-function extractMetadata(event: Parameters<Handle>[0]['event']): auth.UserMetadata {
-	const url = new URL(event.request.url);
-	return {
-		ip: event.getClientAddress(),
-		userAgent: event.request.headers.get('user-agent') ?? undefined,
-		referrer: event.request.headers.get('referer') ?? undefined,
-		acceptLanguage: event.request.headers.get('accept-language') ?? undefined,
-		platform: event.request.headers.get('sec-ch-ua-platform')?.replace(/"/g, '') ?? undefined,
-		isMobile: event.request.headers.get('sec-ch-ua-mobile') === '?1',
-		utmSource: url.searchParams.get('utm_source') ?? undefined,
-		utmMedium: url.searchParams.get('utm_medium') ?? undefined,
-		utmCampaign: url.searchParams.get('utm_campaign') ?? undefined,
-		landingPage: url.pathname
-	};
-}
-
 const handleAuth: Handle = async ({ event, resolve }) => {
 	// Dev mode: use fixed user from env (no session needed)
 	if (env.DEV_AUTH_USER) {
@@ -37,7 +21,7 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 	if (sessionToken) {
 		const { session, user } = await auth.validateSessionToken(sessionToken);
 		if (session && user) {
-			debug('Valid session for user %s (anon=%s)', user.id, user.isAnon);
+			debug('Valid session for user %s (registered=%s)', user.id, user.isRegistered);
 			auth.setSessionTokenCookie(event, sessionToken, session.expiresAt);
 			event.locals.user = user;
 			event.locals.session = session;
@@ -49,13 +33,10 @@ const handleAuth: Handle = async ({ event, resolve }) => {
 		auth.deleteSessionTokenCookie(event);
 	}
 
-	// No valid session - create anonymous user with request metadata
-	debug('Creating anonymous user');
-	const metadata = extractMetadata(event);
-	const { user, session, token } = await auth.createAnonymousUserWithSession(metadata);
-	auth.setSessionTokenCookie(event, token, session.expiresAt);
-	event.locals.user = user;
-	event.locals.session = session;
+	// No valid session - user will be created lazily when a command is executed
+	debug('No valid session, deferring user creation');
+	event.locals.user = null;
+	event.locals.session = null;
 
 	return resolve(event);
 };

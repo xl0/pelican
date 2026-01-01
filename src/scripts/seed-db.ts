@@ -281,7 +281,7 @@ async function seed() {
 
 	// Create dev user
 	console.log('Creating dev user...');
-	await db.insert(schema.users).values({ id: DEV_USER_ID, isAnon: false, isAdmin: true }).onConflictDoNothing();
+	await db.insert(schema.users).values({ id: DEV_USER_ID, isRegistered: true, isAdmin: true }).onConflictDoNothing();
 	console.log(`  ✓ User ${DEV_USER_ID} ready\n`);
 
 	// Seed providers and models

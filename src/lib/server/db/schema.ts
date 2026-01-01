@@ -16,7 +16,7 @@ export const accessEnum = pelican.enum('access', [...accessValues]);
 // Auth tables
 export const users = pelican.table('users', {
 	id: uuid('id').primaryKey().defaultRandom(),
-	isAnon: boolean('is_anon').notNull().default(true), // anonymous user, flips on OAuth
+	isRegistered: boolean('is_registered').notNull().default(false), // becomes true on OAuth
 	isAdmin: boolean('is_admin').notNull().default(false), // can access admin panel
 	createdAt: timestamp('created_at').notNull().defaultNow(),
 	registeredAt: timestamp('registered_at'), // when OAuth completed (null for anon)
