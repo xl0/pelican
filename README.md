@@ -6,6 +6,8 @@ Generate **SVG vector graphics** and **ASCII art** from text prompts. Multi-step
 
 ## Features
 
+https://github.com/user-attachments/assets/eb505e5e-21e7-4f06-a765-3f3adbafa29b
+
 - **SVG or ASCII output** with configurable dimensions
 - **Multi-step refinement** — AI reviews and improves its work
 - **Multiple providers** — OpenAI, Anthropic, Google, xAI, OpenRouter, custom
