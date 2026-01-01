@@ -43,11 +43,17 @@ async function seedProvidersAndModels() {
 		const provId = PROVIDER_ORDER[i];
 		const prov = providerCatalog[provId];
 
-		// Insert provider
-		await db.insert(schema.providers).values({ id: prov.value, label: prov.label, sortOrder: i }).onConflictDoNothing();
+		// Upsert provider - update if exists
+		await db
+			.insert(schema.providers)
+			.values({ id: prov.value, label: prov.label, sortOrder: i, apiKeyUrl: prov.apiKeyUrl ?? null })
+			.onConflictDoUpdate({
+				target: schema.providers.id,
+				set: { label: prov.label, sortOrder: i, apiKeyUrl: prov.apiKeyUrl ?? null }
+			});
 		console.log(`  ✓ Provider: ${prov.label}`);
 
-		// Insert models for this provider (skip 'custom' - it has no predefined models)
+		// Upsert models for this provider (skip 'custom' - it has no predefined models)
 		if (provId !== 'custom') {
 			for (const model of prov.models) {
 				await db
@@ -60,7 +66,15 @@ async function seedProvidersAndModels() {
 						outputPrice: model.pricing.output,
 						supportsImages: model.supportsImages
 					})
-					.onConflictDoNothing();
+					.onConflictDoUpdate({
+						target: [schema.models.providerId, schema.models.value],
+						set: {
+							label: model.label,
+							inputPrice: model.pricing.input,
+							outputPrice: model.pricing.output,
+							supportsImages: model.supportsImages
+						}
+					});
 			}
 			console.log(`    → ${prov.models.length} models`);
 		}

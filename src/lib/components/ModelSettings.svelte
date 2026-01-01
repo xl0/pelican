@@ -1,5 +1,5 @@
 <script lang="ts">
-import dbg from 'debug';
+	import dbg from 'debug';
 	const debug = dbg('app:ModelSettings');
 	import { app } from '$lib/appstate.svelte';
 	import { Button } from '$lib/components/ui/button';
@@ -9,7 +9,7 @@ import dbg from 'debug';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { getProvidersWithModels } from '$lib/data.remote';
 	import * as p from '$lib/persisted.svelte';
-	import { Info, Trash2 } from '@lucide/svelte';
+	import { ExternalLink, Info, Trash2 } from '@lucide/svelte';
 
 	let isApiKeyFocused = $state(false);
 
@@ -30,10 +30,10 @@ import dbg from 'debug';
 	const selectedProvider = $derived(gen?.provider ?? 'anthropic');
 	const selectedModel = $derived(gen?.model ?? '');
 
-	// Get provider label from database or fallback to ID
-	const providerLabel = $derived.by(() => {
-		return providersLookup.get(selectedProvider)?.label ?? selectedProvider;
-	});
+	// Get provider data from database
+	const currentProvider = $derived(providersLookup.get(selectedProvider));
+	const providerLabel = $derived(currentProvider?.label ?? selectedProvider);
+	const apiKeyUrl = $derived(currentProvider?.apiKeyUrl);
 
 	// Get models for current provider
 	const currentProviderModels = $derived.by(() => {
@@ -142,6 +142,16 @@ import dbg from 'debug';
 						</Tooltip.Content>
 					</Tooltip.Root>
 				</Tooltip.Provider>
+				{#if apiKeyUrl}
+					<a
+						href={apiKeyUrl}
+						target="_blank"
+						rel="noopener noreferrer"
+						class="ml-auto text-xs text-primary hover:underline flex items-center gap-1">
+						Get Key
+						<ExternalLink class="h-3 w-3" />
+					</a>
+				{/if}
 			</div>
 			<div class="flex gap-1">
 				<Input

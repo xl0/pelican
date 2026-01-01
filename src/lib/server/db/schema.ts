@@ -51,7 +51,8 @@ export const sessions = pelican.table('sessions', {
 export const providers = pelican.table('llm_providers', {
 	id: text('id').primaryKey(), // 'openai', 'anthropic', 'google', 'xai', 'openrouter', 'custom'
 	label: text('label').notNull(), // Display name: 'OpenAI', 'Anthropic', etc.
-	sortOrder: integer('sort_order').notNull().default(0)
+	sortOrder: integer('sort_order').notNull().default(0),
+	apiKeyUrl: text('api_key_url') // URL to get API key (e.g. 'https://platform.openai.com/api-keys')
 });
 
 export const models = pelican.table(

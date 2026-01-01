@@ -1,15 +1,31 @@
 <script lang="ts">
-import dbg from 'debug';
+	import dbg from 'debug';
 	const debug = dbg('app:PromptInput');
 	import { app } from '$lib/appstate.svelte';
 	import { Button } from '$lib/components/ui/button';
 	import * as ImageZoom from '$lib/components/ui/image-zoom';
 	import { Label } from '$lib/components/ui/label';
 	import { Textarea } from '$lib/components/ui/textarea';
+	import { getProvidersWithModels } from '$lib/data.remote';
 	import { getInputImageUrl } from '$lib/utils';
-	import { ImagePlus, X } from '@lucide/svelte';
+	import { AlertTriangle, ImagePlus, X } from '@lucide/svelte';
 
 	let { onsubmit }: { onsubmit?: () => void } = $props();
+
+	// Fetch providers to check vision capability
+	const providersQuery = $derived(getProvidersWithModels());
+
+	const supportsImages = $derived.by(() => {
+		const gen = app.currentGeneration;
+		if (!gen) return true; // Assume yes if no generation
+		const data = providersQuery.current;
+		if (!data) return true; // Assume yes while loading
+		const provider = data.find((p) => p.id === gen.provider);
+		if (!provider) return true; // Custom provider - assume yes
+		const model = provider.models.find((m) => m.value === gen.model);
+		if (!model) return true; // Custom model - assume yes
+		return model.supportsImages;
+	});
 
 	// Image handling
 	type DBImage = { id: string; extension: string };
@@ -27,6 +43,7 @@ import dbg from 'debug';
 		input.value = '';
 	}
 	const totalImages = $derived((app.currentGeneration?.images?.length ?? 0) + app.pendingInputFiles.length);
+	const hasImagesButNoVision = $derived(totalImages > 0 && !supportsImages);
 
 	function handleKeydown(e: KeyboardEvent) {
 		if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
@@ -39,8 +56,21 @@ import dbg from 'debug';
 <div class="space-y-2">
 	<div class="flex items-center justify-between">
 		<Label for="prompt" class="text-sm font-bold text-foreground">Prompt</Label>
-		<input type="file" id="ref-image-input" class="hidden" onchange={handleFileSelect} accept="image/*" multiple />
-		<Button variant="ghost" size="sm" class="h-6 px-2 gap-1" onclick={() => document.getElementById('ref-image-input')?.click()}>
+		<input
+			type="file"
+			id="ref-image-input"
+			class="hidden"
+			onchange={handleFileSelect}
+			accept="image/*"
+			multiple
+			disabled={!supportsImages} />
+		<Button
+			variant="ghost"
+			size="sm"
+			class="h-6 px-2 gap-1"
+			disabled={!supportsImages}
+			title={supportsImages ? 'Add reference image' : 'Selected model does not support images'}
+			onclick={() => document.getElementById('ref-image-input')?.click()}>
 			<ImagePlus class="h-3 w-3" />
 			<span class="text-xs">Add Image</span>
 		</Button>
@@ -53,13 +83,24 @@ import dbg from 'debug';
 			bind:value={app.currentGeneration.prompt}
 			onkeydown={handleKeydown} />
 
+		<!-- Warning if images attached but model doesn't support them -->
+		{#if hasImagesButNoVision}
+			<div class="flex items-center gap-2 text-xs text-destructive bg-destructive/10 px-2 py-1.5 rounded border border-destructive/20">
+				<AlertTriangle class="h-3.5 w-3.5 shrink-0" />
+				<span>Selected model does not support images. Images will be ignored.</span>
+			</div>
+		{/if}
+
 		<!-- Images -->
 		{#if totalImages > 0}
 			<ImageZoom.Root>
 				<div class="flex flex-wrap gap-2 pt-1">
 					{#each app.currentGeneration.images as img (img.id)}
 						<div class="relative group">
-							<ImageZoom.Trigger src={getImageUrl(img)} alt="Reference" class="w-12 h-12 object-cover rounded border border-border" />
+							<ImageZoom.Trigger
+								src={getImageUrl(img)}
+								alt="Reference"
+								class="w-12 h-12 object-cover rounded border border-border {hasImagesButNoVision ? 'opacity-50' : ''}" />
 							<Button
 								variant="destructive"
 								size="icon"
@@ -74,7 +115,7 @@ import dbg from 'debug';
 							<ImageZoom.Trigger
 								src={getFileUrl(file)}
 								alt={file.name}
-								class="w-12 h-12 object-cover rounded border border-dashed border-border" />
+								class="w-12 h-12 object-cover rounded border border-dashed border-border {hasImagesButNoVision ? 'opacity-50' : ''}" />
 							<Button
 								variant="destructive"
 								size="icon"

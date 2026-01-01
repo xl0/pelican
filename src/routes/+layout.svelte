@@ -26,6 +26,7 @@
 	import { BookType, ChevronDown, Link, SquareTerminal, WandSparkles } from '@lucide/svelte';
 	import dbg from 'debug';
 	import DebugAsciiRender from '$lib/components/DebugAsciiRender.svelte';
+	import { dev } from '$app/environment';
 	const debug = dbg('app:layout');
 
 	let { data, children } = $props();
@@ -243,7 +244,9 @@
 								</Collapsible.Content>
 							</Collapsible.Root>
 
-							<DebugAsciiRender />
+							{#if dev}
+								<DebugAsciiRender />
+							{/if}
 						</div>
 					</div>
 

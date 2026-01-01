@@ -56,7 +56,7 @@ export const insertGeneration = command(
 
 		// Anon users: all generations go to gallery for review
 		// Registered users: use provided or default to private
-		const access = isAnon ? 'gallery' : data.access
+		const access = isAnon ? 'gallery' : data.access;
 
 		try {
 			return await db.db_insertGeneration({ ...data, userId, access, approval: 'pending' });
@@ -285,7 +285,8 @@ export const insertProvider = command(
 	v.object({
 		id: v.string(),
 		label: v.string(),
-		sortOrder: v.optional(v.number())
+		sortOrder: v.optional(v.number()),
+		apiKeyUrl: v.optional(v.nullable(v.string()))
 	}),
 	async (data) => {
 		assertAdmin();
@@ -301,7 +302,8 @@ export const updateProvider = command(
 	v.object({
 		id: v.string(),
 		label: v.optional(v.string()),
-		sortOrder: v.optional(v.number())
+		sortOrder: v.optional(v.number()),
+		apiKeyUrl: v.optional(v.nullable(v.string()))
 	}),
 	async ({ id, ...data }) => {
 		assertAdmin();

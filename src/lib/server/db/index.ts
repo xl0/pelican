@@ -41,7 +41,7 @@ export async function db_getProvidersWithModels() {
 }
 
 // Provider CRUD
-export async function db_insertProvider(data: { id: string; label: string; sortOrder?: number }) {
+export async function db_insertProvider(data: { id: string; label: string; sortOrder?: number; apiKeyUrl?: string | null }) {
 	try {
 		const res = await db.insert(providers).values(data).returning();
 		return res[0];
@@ -50,7 +50,7 @@ export async function db_insertProvider(data: { id: string; label: string; sortO
 	}
 }
 
-export async function db_updateProvider(id: string, data: { label?: string; sortOrder?: number }) {
+export async function db_updateProvider(id: string, data: { label?: string; sortOrder?: number; apiKeyUrl?: string | null }) {
 	try {
 		const res = await db.update(providers).set(data).where(eq(providers.id, id)).returning();
 		return res[0];

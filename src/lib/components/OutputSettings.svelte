@@ -1,15 +1,37 @@
 <script lang="ts">
-import dbg from 'debug';
+	import dbg from 'debug';
 	const debug = dbg('app:OutputSettings');
 	import { app } from '$lib/appstate.svelte';
 	import { Input } from '$lib/components/ui/input';
 	import { Label } from '$lib/components/ui/label';
 	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
 	import { Switch } from '$lib/components/ui/switch';
+	import { getProvidersWithModels } from '$lib/data.remote';
 
 	const gen = $derived(app.currentGeneration);
 	const formatLabel = $derived(gen?.format === 'svg' ? 'SVG' : 'ASCII Art');
 	const sendFullHistory = $derived(gen?.sendFullHistory);
+
+	// Fetch providers to check vision capability
+	const providersQuery = $derived(getProvidersWithModels());
+
+	const supportsImages = $derived.by(() => {
+		if (!gen) return true;
+		const data = providersQuery.current;
+		if (!data) return true;
+		const provider = data.find((p) => p.id === gen.provider);
+		if (!provider) return true;
+		const model = provider.models.find((m) => m.value === gen.model);
+		if (!model) return true;
+		return model.supportsImages;
+	});
+
+	// Clamp maxSteps to 1 if model doesn't support images
+	$effect(() => {
+		if (!supportsImages && gen && gen.maxSteps > 1) {
+			gen.maxSteps = 1;
+		}
+	});
 
 	function handleFormatChange(value: string | undefined) {
 		if (value === 'svg' || value === 'ascii') {
@@ -70,7 +92,15 @@ import dbg from 'debug';
 		<div class="flex items-end gap-2">
 			<div class="w-fit space-y-1 shrink-0">
 				<Label for="steps" class="text-xs font-semibold text-foreground">Steps</Label>
-				<Input type="number" id="steps" bind:value={gen.maxSteps} min={1} max={999} class="text-xs w-fit" />
+				<Input
+					type="number"
+					id="steps"
+					bind:value={gen.maxSteps}
+					min={1}
+					max={supportsImages ? 999 : 1}
+					disabled={!supportsImages}
+					title={supportsImages ? '' : 'Multi-step requires a model with image support'}
+					class="text-xs w-fit" />
 			</div>
 
 			<div class="flex-1 flex flex-col justify-center gap-1 min-w-0">
@@ -89,6 +119,9 @@ import dbg from 'debug';
 				</div>
 			</div>
 		</div>
+		{#if !supportsImages}
+			<p class="text-tiny text-muted-foreground leading-tight">Multi-step refinement requires a model with image support.</p>
+		{/if}
 		{#if gen.maxSteps > 10}
 			<p class="text-tiny text-primary font-medium leading-tight">That's a lot of steps</p>
 		{/if}

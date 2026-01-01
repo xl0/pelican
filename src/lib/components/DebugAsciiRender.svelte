@@ -1,5 +1,5 @@
 <script lang="ts">
-import dbg from 'debug';
+	import dbg from 'debug';
 	const debug = dbg('app:DebugAsciiRender');
 	import { app } from '$lib/appstate.svelte';
 	import { Button } from '$lib/components/ui/button';

@@ -1,0 +1,1 @@
+ALTER TABLE "pelican"."llm_providers" ADD COLUMN "api_key_url" text;

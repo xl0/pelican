@@ -25,7 +25,7 @@
 	// Editing state
 	let editingModel = $state<number | null>(null);
 	let editingProvider = $state<string | null>(null);
-	let newProviderForm = $state({ id: '', label: '', sortOrder: 0 });
+	let newProviderForm = $state({ id: '', label: '', sortOrder: 0, apiKeyUrl: '' });
 	let showNewProviderForm = $state(false);
 	let newModelForms = $state<
 		Record<string, { value: string; label: string; inputPrice: number; outputPrice: number; supportsImages: boolean }>
@@ -79,7 +79,8 @@
 		await updateProvider({
 			id: provider.id,
 			label: edits.label,
-			sortOrder: edits.sortOrder
+			sortOrder: edits.sortOrder,
+			apiKeyUrl: edits.apiKeyUrl || null
 		}).updates(providersQuery);
 		delete providerEdits[provider.id];
 		editingProvider = null;
@@ -91,8 +92,8 @@
 
 	async function handleAddProvider() {
 		if (!newProviderForm.id || !newProviderForm.label) return;
-		await insertProvider(newProviderForm).updates(providersQuery);
-		newProviderForm = { id: '', label: '', sortOrder: 0 };
+		await insertProvider({ ...newProviderForm, apiKeyUrl: newProviderForm.apiKeyUrl || null }).updates(providersQuery);
+		newProviderForm = { id: '', label: '', sortOrder: 0, apiKeyUrl: '' };
 		showNewProviderForm = false;
 	}
 
@@ -129,10 +130,11 @@
 	{#if showNewProviderForm}
 		<Card class="p-4 gap-2">
 			<div class="text-sm font-medium mb-3">New Provider</div>
-			<div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+			<div class="grid grid-cols-1 md:grid-cols-5 gap-3">
 				<Input bind:value={newProviderForm.id} placeholder="ID (e.g. openai)" class="font-mono text-sm" />
 				<Input bind:value={newProviderForm.label} placeholder="Display Label" />
 				<Input type="number" bind:value={newProviderForm.sortOrder} placeholder="Sort Order" />
+				<Input bind:value={newProviderForm.apiKeyUrl} placeholder="API Key URL" class="text-sm" />
 				<div class="flex gap-2 ml-auto">
 					<Button size="sm" onclick={handleAddProvider} disabled={!newProviderForm.id || !newProviderForm.label}>
 						<Check class="h-4 w-4 mr-1" />
@@ -143,7 +145,7 @@
 						variant="ghost"
 						onclick={() => {
 							showNewProviderForm = false;
-							newProviderForm = { id: '', label: '', sortOrder: 0 };
+							newProviderForm = { id: '', label: '', sortOrder: 0, apiKeyUrl: '' };
 						}}>
 						Cancel
 					</Button>
@@ -172,7 +174,11 @@
 							<Collapsible.Trigger class="flex items-center gap-3 flex-1 group text-left">
 								<ChevronDown class="h-4 w-4 text-muted-foreground transition-transform group-data-[state=closed]:-rotate-90" />
 								{#if editingProvider === provider.id}
-									<Input class="w-40 h-8" bind:value={providerEdits[provider.id].label} onclick={(e) => e.stopPropagation()} />
+									<Input
+										class="w-32 h-8"
+										bind:value={providerEdits[provider.id].label}
+										onclick={(e) => e.stopPropagation()}
+										placeholder="Label" />
 								{:else}
 									<span class="font-semibold">{provider.label}</span>
 								{/if}
@@ -181,7 +187,13 @@
 							</Collapsible.Trigger>
 							<div class="flex items-center gap-2">
 								{#if editingProvider === provider.id}
-									<Input type="number" class="w-20 h-8" bind:value={providerEdits[provider.id].sortOrder} placeholder="Order" />
+									<Input
+										type="number"
+										class="w-16 h-8"
+										bind:value={providerEdits[provider.id].sortOrder}
+										placeholder="#"
+										title="Sort order" />
+									<Input class="w-48 h-8 text-xs" bind:value={providerEdits[provider.id].apiKeyUrl} placeholder="API Key URL" />
 									<Button size="icon" variant="ghost" class="h-8 w-8" onclick={() => saveProvider(provider)}>
 										<Save class="h-4 w-4" />
 									</Button>

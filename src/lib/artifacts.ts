@@ -10,8 +10,8 @@ const debug = dbg('app:artifacts');
 
 export type ExtractedArtifact = { body: string };
 
-// SVG code block pattern: ```svg or ```xml followed by <svg...
-const SVG_BLOCK_RE = /```(?:svg|xml)\s*\n(<svg[\s\S]*?)(?:```|$)/gi;
+// SVG code block pattern: ``` (optional svg/xml) followed by <svg...
+const SVG_BLOCK_RE = /```(?:svg|xml)?\s*(<svg[\s\S]*?)(?:```|$)/gi;
 
 // ASCII code block pattern: ``` or ```ascii (we'll take content that's not recognizably code)
 const ASCII_BLOCK_RE = /```(?:ascii)?\s*\n([\s\S]*?)(?:\n```|$)/gi;
