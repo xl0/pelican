@@ -1,0 +1,1 @@
+ALTER TABLE "pelican"."steps" ADD COLUMN "error_data" jsonb;

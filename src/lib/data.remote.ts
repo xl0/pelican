@@ -173,6 +173,7 @@ export const updateStep = command(
 		renderedPrompt: v.optional(v.string()),
 		status: v.optional(v.picklist(statusValues)),
 		errorMessage: v.optional(v.nullable(v.string())),
+		errorData: v.optional(v.nullable(v.unknown())), // Full error object
 		rawOutput: v.optional(v.nullable(v.string())),
 		inputTokens: v.optional(v.nullable(v.number())),
 		outputTokens: v.optional(v.nullable(v.number())),

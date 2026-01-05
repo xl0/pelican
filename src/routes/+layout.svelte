@@ -41,6 +41,10 @@
 	const totalInputCost = $derived(costSteps.reduce((sum, s) => sum + (s.inputCost ?? 0), 0));
 	const totalOutputCost = $derived(costSteps.reduce((sum, s) => sum + (s.outputCost ?? 0), 0));
 
+	// Current generating step (for live progress display)
+	const generatingStepIdx = $derived(costSteps.findIndex((s) => s.status === 'generating'));
+	const generatingStep = $derived(generatingStepIdx >= 0 ? costSteps[generatingStepIdx] : undefined);
+
 	let generation = $derived.by(() => {
 		if (!isMainRoute) return undefined;
 		if (page.params.id) {
@@ -109,6 +113,13 @@
 									outputTokens={totalOutputTokens}
 									inputCost={totalInputCost}
 									outputCost={totalOutputCost} />
+								{#if app.isGenerating && generatingStep}
+									<span class="text-xs text-muted-foreground">
+										Step {generatingStepIdx + 1}/{app.currentGeneration?.maxSteps} · ~{Math.floor(
+											(generatingStep.rawOutput?.length ?? 0) / 4
+										).toLocaleString()} tokens
+									</span>
+								{/if}
 								<!-- ASCII Style toggle -->
 								{#if app.currentGeneration?.format === 'ascii'}
 									<Button

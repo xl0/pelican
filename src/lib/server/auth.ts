@@ -172,9 +172,11 @@ export function extractMetadata(event: RequestEvent): UserMetadata {
  *
  * Synchronized: if multiple commands call this in parallel, only one user is created.
  */
-export async function ensureUser(event: RequestEvent): Promise<{ user: table.User; session: table.Session }> {
+export async function ensureUser(event: RequestEvent): Promise<{ user: table.User; session: table.Session | null }> {
 	// Already have a user from hooks (valid session existed)
-	if (event.locals.user && event.locals.session) {
+
+	// Note: Session is null for the dev user
+	if (event.locals.user) {
 		return { user: event.locals.user, session: event.locals.session };
 	}
 

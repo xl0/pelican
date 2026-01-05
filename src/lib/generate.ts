@@ -34,6 +34,28 @@ import type { Format } from './types';
 
 const debug = dbg('app:generate');
 
+/** Extract detailed error message from AI SDK errors (API errors have data.error.message) */
+function extractErrorMessage(error: unknown): string {
+	if (error && typeof error === 'object') {
+		const e = error as Record<string, unknown>;
+		// AI SDK API errors have data.error.message with provider's error
+		if (e.data && typeof e.data === 'object') {
+			const data = e.data as Record<string, unknown>;
+			if (data.error && typeof data.error === 'object') {
+				const apiError = data.error as Record<string, unknown>;
+				if (typeof apiError.message === 'string') {
+					const parts = [apiError.message];
+					if (apiError.type) parts.push(`type: ${apiError.type}`);
+					if (apiError.code) parts.push(`code: ${apiError.code}`);
+					if (apiError.param) parts.push(`param: ${apiError.param}`);
+					return parts.join(' | ');
+				}
+			}
+		}
+	}
+	return error instanceof Error ? error.message : String(error);
+}
+
 function getModelInstance(provider: string, modelId: string, apiKey: string, endpoint?: string | null): LanguageModel {
 	switch (provider) {
 		case 'openai':
@@ -166,6 +188,19 @@ export async function generate(): Promise<GenerateResult> {
 			const isFirstStep = stepNum === 0;
 			debug('Starting step', { stepNum: stepNum + 1, maxSteps });
 
+			// The rendered prompt for this step (for DB storage)
+			const renderedPrompt = isFirstStep ? app.renderedPrompt : app.renderedRefinementPrompt;
+
+			// Create step data IMMEDIATELY for live UI feedback (before any async ops)
+			const stepData: CurrentGeneration['steps'][number] = {
+				generationId,
+				renderedPrompt,
+				status: 'generating',
+				rawOutput: '',
+				artifacts: []
+			};
+			gen.steps = [...gen.steps, stepData];
+
 			// Build messages for this step
 			const messages: ModelMessage[] = [];
 
@@ -206,30 +241,21 @@ export async function generate(): Promise<GenerateResult> {
 				}
 			}
 
-			// The rendered prompt for this step (for DB storage)
-			const renderedPrompt = isFirstStep ? app.renderedPrompt : app.renderedRefinementPrompt;
-
-			// Insert step in DB
+			// Insert step in DB (after UI is already showing the step)
 			const dbStep = await insertStep({
 				generationId,
 				renderedPrompt,
 				status: 'generating'
 			});
 			debug('Created step', { stepId: dbStep.id, stepNum: stepNum + 1 });
-
-			// Initialize client-side step for live preview
-			const stepData: CurrentGeneration['steps'][number] = {
-				id: dbStep.id,
-				generationId,
-				renderedPrompt,
-				status: 'generating',
-				rawOutput: '',
-				artifacts: []
-			};
-			gen.steps = [...gen.steps, stepData];
+			// Update step with DB id
+			gen.steps[stepNum].id = dbStep.id;
 			// Access step through gen.steps[stepNum] - Svelte's $state proxy requires this
 
 			// Stream the generation
+			// Capture detailed error from onError callback (onError gets the full API error,
+			// but awaiting result.usage throws a generic AI_NoOutputGeneratedError)
+			let streamError: unknown;
 
 			const result = streamText({
 				model,
@@ -249,6 +275,7 @@ export async function generate(): Promise<GenerateResult> {
 				},
 				onError({ error }) {
 					debug('Stream error', { error, stepNum: stepNum + 1 });
+					streamError = error;
 				}
 			});
 
@@ -256,6 +283,9 @@ export async function generate(): Promise<GenerateResult> {
 			for await (const _ of result.textStream) {
 				// Trigger onChunk callbacks
 			}
+
+			// If stream had an error, throw it now (with full details from onError)
+			if (streamError) throw streamError;
 
 			// Get usage stats
 			const usage = await result.usage;
@@ -348,7 +378,8 @@ export async function generate(): Promise<GenerateResult> {
 		return { generationId, success: true };
 	} catch (error) {
 		debug('Generation failed', { error });
-		const errorMsg = error instanceof Error ? error.message : String(error);
+		// Extract detailed error message - API errors have data.error.message with provider's message
+		const errorMsg = extractErrorMessage(error);
 		toast.error('Generation failed', { description: errorMsg });
 
 		// Update last step status to failed
@@ -357,7 +388,8 @@ export async function generate(): Promise<GenerateResult> {
 			await updateStep({
 				id: lastStep.id,
 				status: 'failed',
-				errorMessage: errorMsg
+				errorMessage: errorMsg,
+				errorData: error
 			}).catch(() => {});
 		}
 

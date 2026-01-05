@@ -1,5 +1,5 @@
 import { relations } from 'drizzle-orm';
-import { boolean, integer, pgSchema, primaryKey, real, serial, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
+import { boolean, integer, jsonb, pgSchema, primaryKey, real, serial, text, timestamp, unique, uuid } from 'drizzle-orm/pg-core';
 import { accessValues, approvalValues, formatValues, statusValues } from '$lib/types';
 
 // Re-export for convenience
@@ -113,6 +113,7 @@ export const steps = pelican.table('steps', {
 
 	status: statusEnum('status').notNull(),
 	errorMessage: text('error_message'),
+	errorData: jsonb('error_data'), // Full error object for debugging
 	createdAt: timestamp('created_at').notNull().defaultNow(),
 	completedAt: timestamp('completed_at'),
 
