@@ -5,6 +5,9 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
 	plugins: [sveltekit(), tailwindcss(), devtoolsJson()],
+	server: {
+		allowedHosts: true
+	}
 	// optimizeDeps: {
 	// 	exclude: [
 	// 		'svelte-codemirror-editor',
