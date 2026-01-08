@@ -82,7 +82,8 @@ export const generations = pelican.table('generations', {
 	height: integer('height').notNull(),
 	// Model settings (text only - used for history display)
 	provider: text('provider').notNull(), // 'openai', 'anthropic', etc.
-	model: text('model').notNull(), // 'gpt-4o', 'claude-3-5-sonnet-20241022'
+	model: text('model').notNull(), // 'gpt-4o', 'claude-3-5-sonnet-20241022', or 'custom'
+	customModel: text('custom_model'), // actual model ID when model='custom'
 	endpoint: text('endpoint'),
 	// Prompt templates
 	initialTemplate: text('initial_template').notNull(),

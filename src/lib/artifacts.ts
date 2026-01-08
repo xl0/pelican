@@ -13,8 +13,8 @@ export type ExtractedArtifact = { body: string };
 // SVG code block pattern: ``` (optional svg/xml) followed by <svg...
 const SVG_BLOCK_RE = /```(?:svg|xml)?\s*(<svg[\s\S]*?)(?:```|$)/gi;
 
-// ASCII code block pattern: ``` or ```ascii (we'll take content that's not recognizably code)
-const ASCII_BLOCK_RE = /```(?:ascii)?\s*\n([\s\S]*?)(?:\n```|$)/gi;
+// ASCII code block pattern: ```, ```ascii, or ```text (we'll take content that's not recognizably code)
+const ASCII_BLOCK_RE = /```(?:ascii|text)?\s*\n([\s\S]*?)(?:\n```|$)/gi;
 
 /**
  * Extract SVG artifacts from raw output.

@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { app } from '$lib/appstate.svelte';
-	import CopyButton from '$lib/components/CopyButton.svelte';
 	import { Button } from '$lib/components/ui/button';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
 	import * as ImageZoom from '$lib/components/ui/image-zoom';
 	import * as p from '$lib/persisted.svelte';
-	import { ImageDown, ImageIcon } from '@lucide/svelte';
+	import { Clipboard, FileCode, FileImage, FileText, ImageIcon } from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 	import AsciiRenderer from './AsciiRenderer.svelte';
+	import { svgStringToPng } from 'svelte-asciiart';
+	import { renderAsciiToSvg } from '$lib/svg';
 
 	import dbg from 'debug';
 	const debug = dbg('app:ArtifactPreview');
@@ -39,27 +41,38 @@
 		return () => URL.revokeObjectURL(url);
 	});
 
-	async function copyImage() {
-		if (!gen || !svgBlobUrl) return;
-		const img = new Image();
-		img.src = svgBlobUrl;
-		img.onload = () => {
-			const canvas = document.createElement('canvas');
-			canvas.width = gen.width;
-			canvas.height = gen.height;
-			const ctx = canvas.getContext('2d');
-			if (ctx) {
-				ctx.fillStyle = 'white';
-				ctx.fillRect(0, 0, canvas.width, canvas.height);
-				ctx.drawImage(img, 0, 0);
-				canvas.toBlob((blob) => {
-					if (blob) {
-						navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-						toast.success('Image copied to clipboard');
-					}
-				}, 'image/png');
-			}
-		};
+	async function copySvg() {
+		if (!gen || !body) return;
+		try {
+			const svgContent = isSvg ? body : renderAsciiToSvg(body, gen.width, gen.height);
+			const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+			await navigator.clipboard.write([new ClipboardItem({ 'image/svg+xml': blob })]);
+			toast.success('SVG copied to clipboard');
+		} catch (e) {
+			toast.error('Failed to copy SVG');
+		}
+	}
+
+	async function copyPng() {
+		if (!gen || !body) return;
+		try {
+			const svgContent = isSvg ? body : renderAsciiToSvg(body, gen.width, gen.height);
+			const pngBlob = await svgStringToPng(svgContent, { output: 'blob' });
+			await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+			toast.success('PNG copied to clipboard');
+		} catch (e) {
+			toast.error('Failed to copy PNG');
+		}
+	}
+
+	async function copyText() {
+		if (!body) return;
+		try {
+			await navigator.clipboard.writeText(body);
+			toast.success('Text copied to clipboard');
+		} catch (e) {
+			toast.error('Failed to copy text');
+		}
 	}
 
 	function triggerZoom() {
@@ -85,12 +98,29 @@
 				<div
 					class="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"
 					onclick={(e) => e.stopPropagation()}>
-					{#if isSvg}
-						<Button variant="secondary" size="icon" class="h-8 w-8" onclick={copyImage} title="Copy Image">
-							<ImageDown class="h-4 w-4" />
-						</Button>
-					{/if}
-					<CopyButton text={body} />
+					<DropdownMenu.Root>
+						<DropdownMenu.Trigger>
+							{#snippet child({ props })}
+								<Button variant="secondary" size="icon" class="h-8 w-8" {...props} title="Copy">
+									<Clipboard class="h-4 w-4" />
+								</Button>
+							{/snippet}
+						</DropdownMenu.Trigger>
+						<DropdownMenu.Content>
+							<DropdownMenu.Item onclick={copySvg}>
+								<FileCode class="h-4 w-4 mr-2" />
+								Copy as SVG
+							</DropdownMenu.Item>
+							<DropdownMenu.Item onclick={copyPng}>
+								<FileImage class="h-4 w-4 mr-2" />
+								Copy as PNG
+							</DropdownMenu.Item>
+							<DropdownMenu.Item onclick={copyText}>
+								<FileText class="h-4 w-4 mr-2" />
+								Copy as Text
+							</DropdownMenu.Item>
+						</DropdownMenu.Content>
+					</DropdownMenu.Root>
 				</div>
 			{/if}
 

@@ -28,7 +28,7 @@ import {
 } from './data.remote';
 import * as p from './persisted.svelte';
 import { svgStringToPng } from 'svelte-asciiart';
-import { asciiToPngBlob } from './svg';
+import { renderAsciiToSvg } from './svg';
 import { getInputImageUrl } from './utils';
 import type { Format } from './types';
 
@@ -79,14 +79,7 @@ function getModelInstance(provider: string, modelId: string, apiKey: string, end
 	}
 }
 
-/** Render artifact body to PNG Blob */
-async function renderArtifactToBlob(body: string, format: Format, cols: number, rows: number): Promise<Blob> {
-	if (format === 'svg') {
-		return svgStringToPng(body, { output: 'blob' });
-	} else {
-		return asciiToPngBlob(body, cols, rows);
-	}
-}
+
 
 export interface GenerateResult {
 	generationId: string;
@@ -116,11 +109,18 @@ export async function generate(): Promise<GenerateResult> {
 	const inputPrice = modelData?.inputPrice ?? 0;
 	const outputPrice = modelData?.outputPrice ?? 0;
 
-	const model = getModelInstance(gen.provider, gen.model, apiKey, gen.endpoint?.trim() || undefined);
+	// Determine actual model ID: use customModel when model is 'custom'
+	const effectiveModelId = gen.model === 'custom' ? (gen.customModel || '') : gen.model;
+	if (!effectiveModelId) {
+		toast.error('Please enter a model ID');
+		throw new Error('Missing model ID');
+	}
+
+	const model = getModelInstance(gen.provider, effectiveModelId, apiKey, gen.endpoint?.trim() || undefined);
 	const maxSteps = gen.maxSteps || 1;
 
 	app.isGenerating = true;
-	debug('Starting generation', { provider: gen.provider, model: gen.model, maxSteps, inputPrice, outputPrice });
+	debug('Starting generation', { provider: gen.provider, model: effectiveModelId, maxSteps, inputPrice, outputPrice });
 
 	let generationId: string | undefined;
 
@@ -136,6 +136,7 @@ export async function generate(): Promise<GenerateResult> {
 			height: gen.height,
 			provider: gen.provider,
 			model: gen.model,
+			customModel: gen.customModel,
 			endpoint: gen.endpoint,
 			initialTemplate: gen.initialTemplate,
 			refinementTemplate: gen.refinementTemplate,
@@ -326,19 +327,25 @@ export async function generate(): Promise<GenerateResult> {
 			});
 			debug('Step updated in DB');
 
-			// Upload artifacts to S3, render each and upload PNG if successful
+			// Upload artifacts to S3, render each and upload SVG+PNG
 			let lastRenderedBlob: Blob | undefined;
 			for (let i = 0; i < finalArtifacts.length; i++) {
 				const art = finalArtifacts[i];
-				let renderedData: Uint8Array<ArrayBuffer> | undefined;
+				let svg: string | undefined;
+				let png: Uint8Array<ArrayBuffer> | undefined;
 				let renderError: string | undefined;
 
-				// Try to render artifact to PNG
+				// Render to SVG and PNG
 				try {
-					const blob = await renderArtifactToBlob(art.body, gen.format, gen.width, gen.height);
-					renderedData = new Uint8Array((await blob.arrayBuffer()) as ArrayBuffer);
-					// Keep last successful render for conversation history
-					lastRenderedBlob = blob;
+					if (gen.format === 'svg') {
+						svg = art.body;
+					} else {
+						svg = renderAsciiToSvg(art.body, gen.width, gen.height);
+					}
+					const pngBlob = await svgStringToPng(svg, { output: 'blob' });
+					png = new Uint8Array((await pngBlob.arrayBuffer()) as ArrayBuffer);
+					// Keep last successful PNG render for conversation history (LLM refinement)
+					lastRenderedBlob = pngBlob;
 				} catch (err) {
 					renderError = err instanceof Error ? err.message : String(err);
 					debug('Failed to render artifact', { index: i, error: renderError });
@@ -347,9 +354,9 @@ export async function generate(): Promise<GenerateResult> {
 				const uploaded = await uploadArtifact({
 					generationId,
 					stepId: dbStep.id,
-					content: art.body,
-					format: gen.format,
-					renderedData,
+					ascii: gen.format === 'ascii' ? art.body : undefined,
+					svg,
+					png,
 					renderError
 				});
 				if (step.artifacts[i]) {

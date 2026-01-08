@@ -29,6 +29,7 @@
 	const gen = $derived(app.currentGeneration);
 	const selectedProvider = $derived(gen?.provider ?? 'anthropic');
 	const selectedModel = $derived(gen?.model ?? '');
+	const isCustomModel = $derived(selectedModel === 'custom');
 
 	// Get provider data from database
 	const currentProvider = $derived(providersLookup.get(selectedProvider));
@@ -41,7 +42,7 @@
 	});
 
 	const modelLabel = $derived.by(() => {
-		if (selectedModel === 'custom') return 'Custom Model';
+		if (isCustomModel) return 'Custom Model';
 		const model = currentProviderModels.find((m) => m.value === selectedModel);
 		return model?.label || selectedModel || 'Select a model';
 	});
@@ -54,6 +55,7 @@
 		// Get first model for new provider from DB, or empty for custom
 		const models = providersLookup.get(value)?.models ?? [];
 		gen.model = p.selected_model.current[value] ?? models[0]?.value ?? '';
+		gen.customModel = p.customModelId.current[value] ?? null;
 		gen.endpoint = p.endpoint.current[value] ?? null;
 	}
 
@@ -62,6 +64,10 @@
 			gen.model = value;
 			// Also save to persisted for remembering per-provider selection
 			p.selected_model.current[selectedProvider] = value;
+			// Clear customModel when switching to a non-custom model
+			if (value !== 'custom') {
+				gen.customModel = null;
+			}
 		}
 	}
 </script>
@@ -90,7 +96,7 @@
 			<div class="flex-1 min-w-[140px] space-y-1.5">
 				{#if selectedProvider === 'custom'}
 					<Label for="custom-model-id" class="text-xs font-semibold text-foreground">Model ID</Label>
-					<Input id="custom-model-id" bind:value={gen.model} placeholder="e.g. my-model" class="border-border" />
+					<Input id="custom-model-id" bind:value={gen.customModel} placeholder="e.g. my-model" class="border-border" />
 				{:else}
 					<Label for="model-select" class="text-xs font-semibold text-foreground">Model</Label>
 					<Select type="single" value={gen.model} onValueChange={handleModelChange}>
@@ -108,10 +114,10 @@
 			</div>
 		</div>
 
-		{#if selectedModel === 'custom' && selectedProvider !== 'custom'}
+		{#if isCustomModel && selectedProvider !== 'custom'}
 			<div class="space-y-1.5">
 				<Label for="custom-model-id-override" class="text-xs font-semibold text-foreground">Custom Model ID</Label>
-				<Input id="custom-model-id-override" bind:value={gen.model} placeholder="e.g. my-finetuned-model" class="border-border" />
+				<Input id="custom-model-id-override" bind:value={gen.customModel} placeholder="e.g. my-finetuned-model" class="border-border" />
 			</div>
 		{/if}
 

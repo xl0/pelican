@@ -50,6 +50,13 @@
       "when": 1767578041693,
       "tag": "0006_elite_wolfpack",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1767887828122,
+      "tag": "0007_curious_mindworm",
+      "breakpoints": true
     }
   ]
 }

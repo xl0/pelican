@@ -15,8 +15,15 @@
 </script>
 
 <svelte:head>
-	<title>Gallery - Pelican</title>
-	<meta name="description" content="Browse AI-generated SVG and ASCII artwork created with Pelican" />
+	<title>Pelican - Gallery</title>
+
+	<!-- Open Graph -->
+	<meta property="og:type" content="website" />
+	<meta property="og:title" content="Pelican - Gallery" />
+
+	<!-- Twitter Card -->
+	<meta name="twitter:card" content="summary" />
+	<meta name="twitter:title" content="Pelican - Gallery" />
 </svelte:head>
 
 <div class="min-h-screen bg-background">

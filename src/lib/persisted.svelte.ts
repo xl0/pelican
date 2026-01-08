@@ -22,7 +22,7 @@ const persisted = <T>(s: string, arg: T) => new PersistedState<T>(prefix(s), arg
 // Persisted settings (using runed's PersistedState)
 
 export const provider = persisted<string>('provider', 'anthropic');
-export const customModelId = persisted('customModelId', '');
+export const customModelId = persisted<Record<string, string>>('customModelId', {});
 
 export const outputFormat = persisted<'svg' | 'ascii'>('outputFormat', 'svg');
 export const svgWidth = persisted('svgWidth', 800);

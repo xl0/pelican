@@ -1,0 +1,1 @@
+ALTER TABLE "pelican"."generations" ADD COLUMN "custom_model" text;

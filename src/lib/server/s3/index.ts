@@ -13,11 +13,6 @@ const IMAGE_CONTENT_TYPES: Record<string, string> = {
 	webp: 'image/webp'
 };
 
-const ARTIFACT_CONTENT_TYPES: Record<string, string> = {
-	svg: 'image/svg+xml',
-	ascii: 'text/plain; charset=utf-8'
-};
-
 const s3 = new S3Client({
 	region: S3_REGION || 'us-east-1',
 	credentials: {
@@ -45,46 +40,41 @@ export async function uploadInputImage(imageId: string, data: Uint8Array, extens
 	return key;
 }
 
-const ARTIFACT_EXTENSIONS: Record<string, string> = {
-	svg: 'svg',
-	ascii: 'txt'
-};
+// Artifact upload functions - each format gets its own file
 
-export async function uploadStepArtifact(
-	generationId: string,
-	stepId: number,
-	artifactId: number,
-	content: string,
-	format: 'svg' | 'ascii'
-): Promise<string> {
-	debug('Uploading artifact for generation %s, step %d', stepId, artifactId);
-
-	const extension = ARTIFACT_EXTENSIONS[format];
-	const key = `${generationId}/${stepId}_${artifactId}.${extension}`;
-	const contentType = ARTIFACT_CONTENT_TYPES[format];
-
+/** Upload ASCII text artifact (.txt) */
+export async function uploadAscii(generationId: string, stepId: number, artifactId: number, ascii: string): Promise<string> {
+	const key = `${generationId}/${stepId}_${artifactId}.txt`;
 	await s3.send(
 		new PutObjectCommand({
 			Bucket: S3_BUCKET,
 			Key: key,
-			Body: content,
-			ContentType: contentType
+			Body: ascii,
+			ContentType: 'text/plain; charset=utf-8'
 		})
 	);
-
-	debug('Artifact uploaded to %s', key);
+	debug('ASCII uploaded to %s', key);
 	return key;
 }
 
-/**
- * Upload rendered PNG for an artifact.
- * Path: {generationId}/{stepId}_{artifactId}.png
- */
-export async function uploadRenderedArtifact(generationId: string, stepId: number, artifactId: number, data: Uint8Array): Promise<string> {
-	debug('Uploading rendered artifact for generation %s, step %d, artifact %d', generationId, stepId, artifactId);
+/** Upload SVG artifact (.svg) - used for gallery display */
+export async function uploadSvg(generationId: string, stepId: number, artifactId: number, svg: string): Promise<string> {
+	const key = `${generationId}/${stepId}_${artifactId}.svg`;
+	await s3.send(
+		new PutObjectCommand({
+			Bucket: S3_BUCKET,
+			Key: key,
+			Body: svg,
+			ContentType: 'image/svg+xml'
+		})
+	);
+	debug('SVG uploaded to %s', key);
+	return key;
+}
 
+/** Upload PNG artifact (.png) - used for LLM refinement */
+export async function uploadPng(generationId: string, stepId: number, artifactId: number, data: Uint8Array): Promise<string> {
 	const key = `${generationId}/${stepId}_${artifactId}.png`;
-
 	await s3.send(
 		new PutObjectCommand({
 			Bucket: S3_BUCKET,
@@ -93,8 +83,7 @@ export async function uploadRenderedArtifact(generationId: string, stepId: numbe
 			ContentType: 'image/png'
 		})
 	);
-
-	debug('Rendered artifact uploaded to %s', key);
+	debug('PNG uploaded to %s', key);
 	return key;
 }
 

@@ -36,6 +36,7 @@ export function generationFromPersisted(): CurrentGeneration {
 		height: format === 'svg' ? p.svgHeight.current : p.asciiHeight.current,
 		provider,
 		model: p.selected_model.current[provider] ?? '',
+		customModel: p.customModelId.current[provider] ?? null,
 		endpoint: p.endpoint.current[provider] ?? null,
 		initialTemplate: format === 'svg' ? p.initialTemplate.current : p.asciiInitialTemplate.current,
 		refinementTemplate: format === 'svg' ? p.refinementTemplate.current : p.asciiRefinementTemplate.current,
@@ -99,6 +100,7 @@ class AppState {
 		}
 		p.provider.current = gen.provider;
 		p.selected_model.current[gen.provider] = gen.model;
+		if (gen.customModel) p.customModelId.current[gen.provider] = gen.customModel;
 		if (gen.endpoint) p.endpoint.current[gen.provider] = gen.endpoint;
 		p.maxSteps.current = gen.maxSteps;
 		p.sendFullHistory.current = gen.sendFullHistory;

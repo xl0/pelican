@@ -20,7 +20,8 @@ export function getInputImageUrl(imageId: string, extension: string): string {
 	return `https://${PUBLIC_CLOUDFRONT_URL}/input/${imageId}.${extension}`;
 }
 
-/** Build CloudFront URL for a rendered artifact PNG */
-export function getRenderedArtifactUrl(generationId: string, stepId: number, artifactId: number): string {
-	return `https://${PUBLIC_CLOUDFRONT_URL}/${generationId}/${stepId}_${artifactId}.png`;
+/** Build CloudFront URL for artifact. Default SVG for gallery, PNG for social cards. */
+export function getArtifactUrl(generationId: string, stepId: number, artifactId: number, ext: 'svg' | 'png' = 'svg'): string {
+	return `https://${PUBLIC_CLOUDFRONT_URL}/${generationId}/${stepId}_${artifactId}.${ext}`;
 }
+

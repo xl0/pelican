@@ -1,11 +1,11 @@
 <script lang="ts">
-import dbg from 'debug';
+	import dbg from 'debug';
 	const debug = dbg('app:GalleryGrid');
 	import * as Card from '$lib/components/ui/card';
 	import * as Pagination from '$lib/components/ui/pagination';
 	import { Skeleton } from '$lib/components/ui/skeleton';
 	import type { getPublicGenerations } from '$lib/data.remote';
-	import { getRenderedArtifactUrl } from '$lib/utils';
+	import { getArtifactUrl } from '$lib/utils';
 	import { formatDistanceToNow } from 'date-fns';
 	import { MediaQuery } from 'svelte/reactivity';
 
@@ -27,7 +27,7 @@ import dbg from 'debug';
 		const step = gen.steps?.[0];
 		const artifact = step?.artifacts?.[0];
 		if (!step || !artifact) return null;
-		return getRenderedArtifactUrl(gen.id, step.id, artifact.id);
+		return getArtifactUrl(gen.id, step.id, artifact.id);
 	}
 
 	function distributeToColumns<T>(items: T[], numColumns: number): T[][] {

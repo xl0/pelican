@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { resolve } from '$app/paths';
 	import { getPublicGenerations, updateGeneration, getAdminStats } from '$lib/data.remote';
-	import { getRenderedArtifactUrl } from '$lib/utils';
+	import { getArtifactUrl } from '$lib/utils';
 	import { Button } from '$lib/components/ui/button';
 	import { Card } from '$lib/components/ui/card';
 	import * as Pagination from '$lib/components/ui/pagination';
@@ -187,7 +187,7 @@
 	<Card class="p-2 group relative {gen.processing ? 'opacity-60' : ''} {gen.approval === 'rejected' ? 'opacity-75' : ''}">
 		<a href={resolve(`/${gen.id}`)} class="block">
 			{#if lastStep && lastArtifact}
-				{@const imgUrl = getRenderedArtifactUrl(gen.id, lastStep.id, lastArtifact.id)}
+				{@const imgUrl = getArtifactUrl(gen.id, lastStep.id, lastArtifact.id)}
 				<img
 					src={imgUrl}
 					alt={gen.prompt}

@@ -9,7 +9,7 @@
 	import { Switch } from '$lib/components/ui/switch';
 	import * as ImageZoom from '$lib/components/ui/image-zoom';
 	import * as p from '$lib/persisted.svelte';
-	import { getInputImageUrl, getRenderedArtifactUrl } from '$lib/utils';
+	import { getInputImageUrl, getArtifactUrl } from '$lib/utils';
 	import { oneDark } from '@codemirror/theme-one-dark';
 	import { EditorView } from '@codemirror/view';
 	import CodeMirror from 'svelte-codemirror-editor';
@@ -36,7 +36,7 @@
 		for (let i = artifacts.length - 1; i >= 0; i--) {
 			const art = artifacts[i];
 			if (!art.renderError && art.id) {
-				return getRenderedArtifactUrl(generationId, step.id, art.id);
+				return getArtifactUrl(generationId, step.id, art.id, 'png');
 			}
 		}
 		return undefined;

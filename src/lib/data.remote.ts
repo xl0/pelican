@@ -50,6 +50,7 @@ export const insertGeneration = command(
 		height: v.number(),
 		provider: v.string(),
 		model: v.string(),
+		customModel: v.optional(v.nullable(v.string())),
 		endpoint: v.nullable(v.string()),
 		initialTemplate: v.string(),
 		refinementTemplate: v.string(),
@@ -225,29 +226,37 @@ export const uploadArtifact = command(
 	v.object({
 		generationId: v.string(),
 		stepId: v.number(),
-		content: v.string(),
-		format: v.picklist(['svg', 'ascii']),
-		renderedData: v.optional(v.instance(Uint8Array)), // PNG bytes if rendering succeeded
+		ascii: v.optional(v.string()), // Raw ASCII text
+		svg: v.optional(v.string()), // SVG content (original or rendered from ASCII)
+		png: v.optional(v.instance(Uint8Array)), // PNG bytes for LLM refinement
 		renderError: v.optional(v.nullable(v.string())) // error message if rendering failed
 	}),
-	async ({ generationId, stepId, content, format, renderedData, renderError }) => {
+	async ({ generationId, stepId, ascii, svg, png, renderError }) => {
 		const { user } = await ensureCurrentUser();
-		let key: string | undefined;
-		let renderedKey: string | undefined;
-		const artifact = await db.db_insertArtifact({ userId: user.id, stepId, body: content, renderError });
+		// Need at least one content type for DB body
+		const body = ascii ?? svg ?? '';
+		if (!ascii && !svg && !png) {
+			throw new Error('At least one of ascii, svg, or png must be provided');
+		}
+
+		let asciiKey: string | undefined;
+		let svgKey: string | undefined;
+		let pngKey: string | undefined;
+		const artifact = await db.db_insertArtifact({ userId: user.id, stepId, body, renderError });
 		try {
-			// Upload SVG/ASCII artifact
-			key = await s3.uploadStepArtifact(generationId, stepId, artifact.id, content, format);
-			// Upload rendered PNG if provided
-			if (renderedData) {
-				renderedKey = await s3.uploadRenderedArtifact(generationId, stepId, artifact.id, renderedData);
-			}
-			return { id: artifact.id, key, renderedKey };
+		// Upload each provided format in parallel
+			const uploads = await Promise.all([
+				ascii ? s3.uploadAscii(generationId, stepId, artifact.id, ascii) : undefined,
+				svg ? s3.uploadSvg(generationId, stepId, artifact.id, svg) : undefined,
+				png ? s3.uploadPng(generationId, stepId, artifact.id, png) : undefined
+			]);
+			[asciiKey, svgKey, pngKey] = uploads;
+			return { id: artifact.id, asciiKey, svgKey, pngKey };
 		} catch (e) {
 			await db.db_deleteArtifact(artifact.id);
 			throw e;
 		} finally {
-			debug('uploadArtifact genId=%s stepId=%d key=%s userId=%s', generationId, stepId, key, user.id);
+			debug('uploadArtifact genId=%s stepId=%d userId=%s', generationId, stepId, user.id);
 		}
 	}
 );
