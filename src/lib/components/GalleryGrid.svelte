@@ -8,6 +8,7 @@
 	import { getArtifactUrl } from '$lib/utils';
 	import { formatDistanceToNow } from 'date-fns';
 	import { MediaQuery } from 'svelte/reactivity';
+	import { ImageOff } from '@lucide/svelte';
 
 	type Query = ReturnType<typeof getPublicGenerations>;
 	type Data = NonNullable<Query['current']>;
@@ -42,6 +43,9 @@
 	const columnCount = $derived(xl.current ? 5 : lg.current ? 4 : sm.current ? 3 : 2);
 
 	const columns = $derived(query.current ? distributeToColumns(query.current.items, columnCount) : []);
+
+	// Track failed image URLs
+	let failedImages = $state(new Set<string>());
 </script>
 
 {#if query.loading}
@@ -82,8 +86,21 @@
 						<a href="/{gen.id}" class="group block">
 							<Card.Root
 								class="overflow-hidden transition-all hover:border-primary/50 hover:shadow-lg group-hover:-translate-y-0.5 py-0 gap-2">
-								{#if previewUrl}
-									<img src={previewUrl} alt={gen.prompt} class="w-full h-auto" loading="lazy" />
+								{#if previewUrl && !failedImages.has(previewUrl)}
+									<img
+										src={previewUrl}
+										alt={gen.prompt}
+										class="w-full h-auto"
+										loading="lazy"
+										onerror={() => {
+											debug('failed to load', previewUrl);
+											failedImages = new Set([...failedImages, previewUrl]);
+										}} />
+								{:else if previewUrl && failedImages.has(previewUrl)}
+									<div class="w-full aspect-square flex flex-col items-center justify-center bg-destructive/10 text-destructive/60">
+										<ImageOff class="h-8 w-8 mb-1" />
+										<span class="text-xs">Image error</span>
+									</div>
 								{:else}
 									<div class="w-full aspect-square flex items-center justify-center bg-muted">
 										<span class="text-muted-foreground text-sm">No preview</span>

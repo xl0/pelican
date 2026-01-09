@@ -42,6 +42,17 @@
 		return undefined;
 	}
 
+	// Get render error from the last artifact of a step (if all failed)
+	function getStepRenderError(step: (typeof steps)[number] | undefined): string | undefined {
+		if (!step?.id) return undefined;
+		const artifacts = step.artifacts ?? [];
+		// If any artifact rendered successfully, no error to show
+		if (artifacts.some((a) => !a.renderError)) return undefined;
+		// Get the last artifact's render error
+		const lastArtifact = artifacts[artifacts.length - 1];
+		return lastArtifact?.renderError ?? undefined;
+	}
+
 	$effect(() => {
 		if (p.showAllSteps.current && selectedIndex >= 0 && container) {
 			// Small delay to let DOM update after toggling showAllSteps
@@ -84,6 +95,13 @@
 	{/if}
 {/snippet}
 
+{#snippet renderErrorBlock(error: string, height: string = 'h-20')}
+	<div class="{height} max-w-xs p-2 border border-destructive/30 bg-destructive/10 rounded text-xs text-destructive overflow-auto">
+		<div class="font-semibold mb-1">Render Error</div>
+		<div class="font-mono whitespace-pre-wrap">{error}</div>
+	</div>
+{/snippet}
+
 <div class="raw-output flex-1 h-0 flex flex-col gap-2">
 	<!-- Controls -->
 	<div class="flex flex-row items-center justify-between gap-2 shrink-0 px-1 pr-4 h-6">
@@ -104,6 +122,7 @@
 				{@const isSelected = i === selectedIndex}
 				{@const prev = i > 0 ? steps[i - 1] : undefined}
 				{@const prevRenderedUrl = getStepRenderedUrl(prev)}
+				{@const prevRenderError = getStepRenderError(prev)}
 				<div id="step-{i}" class="flex flex-col gap-2 p-2 border shrink-0 {isSelected ? 'border-primary bg-primary/5' : 'border-border'}">
 					<div class="flex justify-between items-center px-2">
 						<span class="text-xs font-bold text-foreground">Step {i + 1}</span>
@@ -122,11 +141,13 @@
 							{#if mappedInputImages.length > 0}
 								{@render imagesBlock(mappedInputImages, 'h-20')}
 							{/if}
-							{#if mappedInputImages.length > 0 && prevRenderedUrl}
+							{#if mappedInputImages.length > 0 && (prevRenderedUrl || prevRenderError)}
 								<Separator orientation="vertical" class="h-20!" />
 							{/if}
 							{#if prevRenderedUrl}
 								{@render imagesBlock([{ src: prevRenderedUrl, alt: `Rendered Step ${i}` }], 'h-20')}
+							{:else if prevRenderError}
+								{@render renderErrorBlock(prevRenderError)}
 							{/if}
 						</div>
 						{#if step.renderedPrompt}
@@ -154,6 +175,7 @@
 			<!-- Single Step View -->
 			{#if currentStep}
 				{@const prevStepRenderedUrl = getStepRenderedUrl(prevStep)}
+				{@const prevStepRenderError = getStepRenderError(prevStep)}
 
 				<!-- Step header -->
 				<div class="flex justify-between items-center px-2 shrink-0">
@@ -184,11 +206,13 @@
 						{#if mappedInputImages.length > 0}
 							{@render imagesBlock(mappedInputImages, 'h-20')}
 						{/if}
-						{#if mappedInputImages.length > 0 && prevStepRenderedUrl}
+						{#if mappedInputImages.length > 0 && (prevStepRenderedUrl || prevStepRenderError)}
 							<Separator orientation="vertical" class="h-20!" />
 						{/if}
 						{#if prevStepRenderedUrl}
 							{@render imagesBlock([{ src: prevStepRenderedUrl, alt: `Rendered Step ${selectedIndex}` }], 'h-20')}
+						{:else if prevStepRenderError}
+							{@render renderErrorBlock(prevStepRenderError)}
 						{/if}
 					</div>
 					{#if currentStep.renderedPrompt}

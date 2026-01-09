@@ -154,7 +154,7 @@ class AppState {
 			stepId: step.id,
 			body: a.body
 		}));
-		debug('updateStepArtifacts', { stepIndex: idx, count: step.artifacts.length });
+		debug('updateStepArtifacts', { stepIndex: idx, count: step.artifacts.length, artifacts: step.artifacts });
 	}
 
 	/**

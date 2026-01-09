@@ -3,6 +3,7 @@
 	const debug = dbg('app:StepsHistory');
 	import { app, type CurrentGeneration } from '$lib/appstate.svelte';
 	import AsciiRenderer from './AsciiRenderer.svelte';
+	import SvgThumbnail from './SvgThumbnail.svelte';
 	import { Loader2, AlertCircle } from '@lucide/svelte';
 
 	// Derive steps with artifacts (add fake placeholder if empty)
@@ -65,9 +66,7 @@
 							}}>
 							{#if artifact.body}
 								{#if app.currentGeneration?.format === 'svg'}
-									<div class="w-full h-full [&>svg]:w-full [&>svg]:h-full flex items-center justify-center bg-card pointer-events-none">
-										{@html artifact.body}
-									</div>
+									<SvgThumbnail body={artifact.body} isGenerating={app.isGenerating} />
 								{:else}
 									<div class="w-full h-full pointer-events-none">
 										<AsciiRenderer

@@ -2,7 +2,6 @@
  * Artifact extraction from raw model output.
  * Works incrementally during streaming - call on each chunk to update artifacts.
  */
-import DOMPurify from 'dompurify';
 import dbg from 'debug';
 import type { Format } from './types';
 
@@ -19,108 +18,15 @@ const ASCII_BLOCK_RE = /(?:^|\n)```(?:ascii|text)?\s*\n([\s\S]*?)(?:\n```|$)/gi;
 /**
  * Extract SVG artifacts from raw output.
  * Returns all complete or partial SVGs found.
+ * No sanitization - trusts LLM output since this runs client-side.
  */
 function extractSvgs(raw: string): ExtractedArtifact[] {
 	const artifacts: ExtractedArtifact[] = [];
 	for (const match of raw.matchAll(SVG_BLOCK_RE)) {
-		let svg = match[1];
+		let svg = match[1].trim();
 		// Auto-close incomplete SVG for streaming preview
 		if (!svg.includes('</svg>')) svg += '</svg>';
-		// Sanitize for safe DOM injection
-		const clean = DOMPurify.sanitize(svg, {
-			USE_PROFILES: { svg: true, svgFilters: true },
-			ADD_TAGS: [
-				'svg',
-				'path',
-				'circle',
-				'rect',
-				'line',
-				'ellipse',
-				'polygon',
-				'polyline',
-				'g',
-				'defs',
-				'clipPath',
-				'mask',
-				'pattern',
-				'linearGradient',
-				'radialGradient',
-				'stop',
-				'text',
-				'tspan',
-				'foreignObject',
-				'use',
-				'symbol',
-				'marker',
-				'filter',
-				'feGaussianBlur',
-				'feOffset',
-				'feMerge',
-				'feMergeNode',
-				'feBlend',
-				'feColorMatrix',
-				'feComposite',
-				'feFlood',
-				'feImage',
-				'feMorphology',
-				'feDisplacementMap',
-				'feTurbulence'
-			],
-			ADD_ATTR: [
-				'viewBox',
-				'xmlns',
-				'xmlns:xlink',
-				'fill',
-				'stroke',
-				'stroke-width',
-				'stroke-linecap',
-				'stroke-linejoin',
-				'stroke-dasharray',
-				'stroke-opacity',
-				'fill-opacity',
-				'transform',
-				'd',
-				'cx',
-				'cy',
-				'r',
-				'x',
-				'y',
-				'width',
-				'height',
-				'rx',
-				'ry',
-				'points',
-				'x1',
-				'y1',
-				'x2',
-				'y2',
-				'offset',
-				'stop-color',
-				'stop-opacity',
-				'opacity',
-				'font-family',
-				'font-size',
-				'font-weight',
-				'text-anchor',
-				'dominant-baseline',
-				'id',
-				'href',
-				'xlink:href',
-				'clip-path',
-				'mask',
-				'filter',
-				'gradientUnits',
-				'patternUnits',
-				'spreadMethod',
-				'markerWidth',
-				'markerHeight',
-				'refX',
-				'refY',
-				'orient',
-				'preserveAspectRatio'
-			]
-		});
-		if (clean.trim()) artifacts.push({ body: clean });
+		if (svg) artifacts.push({ body: svg });
 	}
 	return artifacts;
 }

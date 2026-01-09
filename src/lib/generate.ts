@@ -9,7 +9,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createXai } from '@ai-sdk/xai';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
 import { streamText, type LanguageModel, type ImagePart } from 'ai';
-import type { ModelMessage } from 'ai';
+import type { ModelMessage, TextPart } from 'ai';
 
 import { goto } from '$app/navigation';
 import dbg from 'debug';
@@ -28,7 +28,7 @@ import {
 } from './data.remote';
 import * as p from './persisted.svelte';
 import { svgStringToPng } from 'svelte-asciiart';
-import { renderAsciiToSvg } from './svg';
+import { renderAsciiToSvg, parseSvg, getSvgErrorContext } from './svg';
 import { getInputImageUrl } from './utils';
 import type { Format } from './types';
 
@@ -79,12 +79,47 @@ function getModelInstance(provider: string, modelId: string, apiKey: string, end
 	}
 }
 
-
-
 export interface GenerateResult {
 	generationId: string;
 	success: boolean;
 	error?: string;
+}
+
+/** Step history entry for multi-step refinement */
+interface StepHistoryEntry {
+	rawOutput: string;
+	renderedBlob?: Blob;
+	svgError?: { message: string; context: string };
+}
+
+/** Build user message from history entry (rendered image or error feedback) */
+async function buildHistoryMessage(hist: StepHistoryEntry, refinementPrompt: string): Promise<ModelMessage> {
+	if (hist.renderedBlob) {
+		const renderedData = new Uint8Array(await hist.renderedBlob.arrayBuffer()) as Uint8Array<ArrayBuffer>;
+		return {
+			role: 'user',
+			content: [
+				{ type: 'image', image: renderedData },
+				{ type: 'text', text: refinementPrompt }
+			]
+		};
+	} else if (hist.svgError) {
+		const errorFeedback = `The SVG you generated has error(s) and cannot be rendered.
+
+First error: ${hist.svgError.message}
+
+SVG content around the error:
+${hist.svgError.context}`;
+		return {
+			role: 'user',
+			content: [
+				{ type: 'text', text: errorFeedback },
+				{ type: 'text', text: refinementPrompt }
+			]
+		};
+	} else {
+		return { role: 'user', content: refinementPrompt };
+	}
 }
 
 /**
@@ -110,7 +145,7 @@ export async function generate(): Promise<GenerateResult> {
 	const outputPrice = modelData?.outputPrice ?? 0;
 
 	// Determine actual model ID: use customModel when model is 'custom'
-	const effectiveModelId = gen.model === 'custom' ? (gen.customModel || '') : gen.model;
+	const effectiveModelId = gen.model === 'custom' ? gen.customModel || '' : gen.model;
 	if (!effectiveModelId) {
 		toast.error('Please enter a model ID');
 		throw new Error('Missing model ID');
@@ -129,21 +164,7 @@ export async function generate(): Promise<GenerateResult> {
 		app.commitToPersisted();
 
 		// 2. Insert generation into DB
-		const dbGen = await insertGeneration({
-			prompt: gen.prompt,
-			format: gen.format,
-			width: gen.width,
-			height: gen.height,
-			provider: gen.provider,
-			model: gen.model,
-			customModel: gen.customModel,
-			endpoint: gen.endpoint,
-			initialTemplate: gen.initialTemplate,
-			refinementTemplate: gen.refinementTemplate,
-			maxSteps: gen.maxSteps,
-			sendFullHistory: gen.sendFullHistory,
-			access: gen.access
-		});
+		const dbGen = await insertGeneration(gen);
 		generationId = dbGen.id;
 		gen.id = dbGen.id;
 		debug('Created generation', { generationId });
@@ -166,7 +187,7 @@ export async function generate(): Promise<GenerateResult> {
 		}
 		app.pendingInputFiles = [];
 
-		// 3b. Add existing images from generation and link to new generation
+		// 3b. Add existing images from reference generation and link to new generation
 		if (gen.images?.length) {
 			for (const img of gen.images) {
 				const url = getInputImageUrl(img.id, img.extension);
@@ -182,7 +203,8 @@ export async function generate(): Promise<GenerateResult> {
 		app.selectedArtifactIndex = undefined;
 
 		// Step history: track each completed step's output and rendered image (Blob for efficiency)
-		const stepHistory: { rawOutput: string; renderedBlob: Blob }[] = [];
+		// If SVG parsing failed, store error info instead of rendered image
+		const stepHistory: StepHistoryEntry[] = [];
 
 		// ========== Multi-step generation loop ==========
 		for (let stepNum = 0; stepNum < maxSteps; stepNum++) {
@@ -206,10 +228,7 @@ export async function generate(): Promise<GenerateResult> {
 			const messages: ModelMessage[] = [];
 
 			// Always start with: input images + initial prompt
-			const initialContent: Array<{ type: 'text'; text: string } | ImagePart> = [
-				...inputImageParts,
-				{ type: 'text', text: app.renderedPrompt }
-			];
+			const initialContent: Array<TextPart | ImagePart> = [...inputImageParts, { type: 'text', text: app.renderedPrompt }];
 			messages.push({ role: 'user', content: initialContent });
 
 			// For refinement steps, add history
@@ -218,40 +237,24 @@ export async function generate(): Promise<GenerateResult> {
 					// Full history: all previous steps
 					for (const hist of stepHistory) {
 						messages.push({ role: 'assistant', content: hist.rawOutput });
-						const renderedData = new Uint8Array(await hist.renderedBlob.arrayBuffer()) as Uint8Array<ArrayBuffer>;
-						messages.push({
-							role: 'user',
-							content: [
-								{ type: 'image', image: renderedData },
-								{ type: 'text', text: app.renderedRefinementPrompt }
-							]
-						});
+						messages.push(await buildHistoryMessage(hist, app.renderedRefinementPrompt));
 					}
 				} else {
 					// Last step only: just the previous step's context
 					const lastHist = stepHistory[stepHistory.length - 1];
 					messages.push({ role: 'assistant', content: lastHist.rawOutput });
-					const renderedData = new Uint8Array(await lastHist.renderedBlob.arrayBuffer()) as Uint8Array<ArrayBuffer>;
-					messages.push({
-						role: 'user',
-						content: [
-							{ type: 'image', image: renderedData },
-							{ type: 'text', text: app.renderedRefinementPrompt }
-						]
-					});
+					messages.push(await buildHistoryMessage(lastHist, app.renderedRefinementPrompt));
 				}
 			}
 
 			// Insert step in DB (after UI is already showing the step)
-			const dbStep = await insertStep({
+			const { id: stepId } = await insertStep({
 				generationId,
 				renderedPrompt,
 				status: 'generating'
 			});
-			debug('Created step', { stepId: dbStep.id, stepNum: stepNum + 1 });
-			// Update step with DB id
-			gen.steps[stepNum].id = dbStep.id;
-			// Access step through gen.steps[stepNum] - Svelte's $state proxy requires this
+			debug('Created step', { stepId, stepNum: stepNum + 1 });
+			gen.steps[stepNum].id = stepId;
 
 			// Stream the generation
 			// Capture detailed error from onError callback (onError gets the full API error,
@@ -262,13 +265,14 @@ export async function generate(): Promise<GenerateResult> {
 				model,
 				messages,
 				onChunk({ chunk }) {
+					// XXX handle reasoning deltas
 					if (chunk.type === 'text-delta') {
 						const step = gen.steps[stepNum];
 						if (step) {
 							step.rawOutput = (step.rawOutput ?? '') + chunk.text;
 							const extracted = extractArtifacts(step.rawOutput, gen.format);
 							step.artifacts = extracted.map((a) => ({
-								stepId: dbStep.id,
+								stepId,
 								body: a.body
 							}));
 						}
@@ -293,89 +297,99 @@ export async function generate(): Promise<GenerateResult> {
 			const inputTokens = usage?.inputTokens ?? 0;
 			const outputTokens = usage?.outputTokens ?? 0;
 
-			// Final artifact extraction
-			const step = gen.steps[stepNum]!;
-			const finalArtifacts = extractArtifacts(step.rawOutput ?? '', gen.format);
-			step.artifacts = finalArtifacts.map((a) => ({
-				stepId: dbStep.id,
-				body: a.body
-			}));
+			// Update step with final data
+			const step = gen.steps[stepNum];
 			step.status = 'completed';
 			step.inputTokens = inputTokens;
 			step.outputTokens = outputTokens;
 			step.inputCost = (inputTokens / 1_000_000) * inputPrice;
 			step.outputCost = (outputTokens / 1_000_000) * outputPrice;
 
-			debug('Step completed', {
-				stepNum: stepNum + 1,
-				inputTokens,
-				outputTokens,
-				artifacts: finalArtifacts.length,
-				rawOutputLen: step.rawOutput?.length ?? 0
-			});
+			debug('Step %d completed: %d in / %d out tokens, %d artifacts', stepNum + 1, inputTokens, outputTokens, step.artifacts.length);
 
 			// Update step in DB
-			debug('Updating step in DB', { stepId: dbStep.id, rawOutputLen: (step.rawOutput ?? '').length });
-			await updateStep({
-				id: dbStep.id,
-				status: 'completed',
-				rawOutput: step.rawOutput ?? '',
-				inputTokens,
-				outputTokens,
-				inputCost: (inputTokens / 1_000_000) * inputPrice,
-				outputCost: (outputTokens / 1_000_000) * outputPrice
-			});
-			debug('Step updated in DB');
+			await updateStep({ ...step, id: stepId });
 
-			// Upload artifacts to S3, render each and upload SVG+PNG
+			// Upload artifacts to S3, render each to SVG+PNG
 			let lastRenderedBlob: Blob | undefined;
-			for (let i = 0; i < finalArtifacts.length; i++) {
-				const art = finalArtifacts[i];
+			let lastSvgError: { message: string; context: string } | undefined;
+
+			for (let i = 0; i < step.artifacts.length; i++) {
+				const art = step.artifacts[i];
+				let ascii: string | undefined;
 				let svg: string | undefined;
 				let png: Uint8Array<ArrayBuffer> | undefined;
 				let renderError: string | undefined;
 
-				// Render to SVG and PNG
 				try {
-					if (gen.format === 'svg') {
-						svg = art.body;
+					if (gen.format === 'ascii') {
+						// ASCII: save raw text, render to SVG
+						ascii = art.body ?? '';
+						svg = renderAsciiToSvg(ascii, gen.width, gen.height);
 					} else {
-						svg = renderAsciiToSvg(art.body, gen.width, gen.height);
+						// SVG: parse and get normalized version
+						const svgBody = art.body ?? '';
+						const parseResult = parseSvg(svgBody);
+						if (!parseResult.valid) {
+							const errorLine = parseResult.line ?? 1;
+							const errorContext = getSvgErrorContext(svgBody, errorLine);
+							renderError = parseResult.error ?? 'SVG parse error';
+							lastSvgError = { message: renderError, context: errorContext };
+							svg = svgBody; // Store original broken SVG for inspection
+							debug('SVG parse error artifact %d: %s (line %d)', i, renderError, errorLine);
+						} else {
+							svg = parseResult.svg;
+						}
 					}
-					const pngBlob = await svgStringToPng(svg, { output: 'blob' });
-					png = new Uint8Array((await pngBlob.arrayBuffer()) as ArrayBuffer);
-					// Keep last successful PNG render for conversation history (LLM refinement)
-					lastRenderedBlob = pngBlob;
+
+					// Convert SVG to PNG if no error
+					if (!renderError && svg) {
+						const pngBlob = await svgStringToPng(svg, { output: 'blob' });
+						png = new Uint8Array((await pngBlob.arrayBuffer()) as ArrayBuffer);
+						lastRenderedBlob = pngBlob;
+						lastSvgError = undefined;
+					}
 				} catch (err) {
 					renderError = err instanceof Error ? err.message : String(err);
-					debug('Failed to render artifact', { index: i, error: renderError });
+					debug('Failed to render artifact %d: %s', i, renderError);
+					if (gen.format === 'svg') {
+						lastSvgError = { message: renderError, context: (art.body ?? '').slice(0, 500) + '...' };
+					}
 				}
 
+				// Upload all formats
 				const uploaded = await uploadArtifact({
 					generationId,
-					stepId: dbStep.id,
-					ascii: gen.format === 'ascii' ? art.body : undefined,
+					stepId,
+					ascii,
 					svg,
 					png,
 					renderError
 				});
-				if (step.artifacts[i]) {
-					step.artifacts[i].id = uploaded.id;
-				}
-				debug('Uploaded artifact', { id: uploaded.id, renderError });
+				if (step.artifacts[i]) step.artifacts[i].id = uploaded.id;
+				debug('Uploaded artifact %d: %s%s', i, uploaded.id, renderError ? ' (error)' : '');
 			}
 
-			// If not the last step and we have a rendered image, use for history
+			// If not the last step, add to history for next step's context
 			const isLastStep = stepNum === maxSteps - 1;
-			// XXX Let the llm know we could not render the last artifact and thus we are sending the other one.
-			if (!isLastStep && lastRenderedBlob) {
-				// Store blob for next step's message building
-				stepHistory.push({ rawOutput: step.rawOutput ?? '', renderedBlob: lastRenderedBlob });
-				debug('Added step to history', { stepNum: stepNum + 1 });
-			} else if (!isLastStep && finalArtifacts.length > 0) {
-				// No artifact rendered successfully, can't continue refinement
-				debug('No artifacts rendered successfully, stopping refinement');
-				break;
+			if (!isLastStep) {
+				if (lastRenderedBlob) {
+					// Success: store rendered image
+					stepHistory.push({ rawOutput: step.rawOutput ?? '', renderedBlob: lastRenderedBlob });
+					debug('Added step to history with image', { stepNum: stepNum + 1 });
+				} else if (lastSvgError) {
+					// Failure: store error context for LLM to fix
+					stepHistory.push({ rawOutput: step.rawOutput ?? '', svgError: lastSvgError });
+					debug('Added step to history with SVG error', { stepNum: stepNum + 1, error: lastSvgError.message });
+				} else {
+					// No artifacts extracted at all - let LLM know and try again
+					const noArtifactError = {
+						message: 'No SVG artifact was found in your response. Please include a complete SVG wrapped in ```svg code blocks.',
+						context: ''
+					};
+					stepHistory.push({ rawOutput: step.rawOutput ?? '', svgError: noArtifactError });
+					debug('Added step to history with no-artifact error', { stepNum: stepNum + 1 });
+				}
 			}
 		}
 

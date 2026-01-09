@@ -6,7 +6,10 @@
 	import { Card } from '$lib/components/ui/card';
 	import * as Pagination from '$lib/components/ui/pagination';
 	import { Tabs, TabsContent, TabsList, TabsTrigger } from '$lib/components/ui/tabs';
-	import { Check, Loader2, RotateCcw, X } from '@lucide/svelte';
+	import { Check, ImageOff, Loader2, RotateCcw, X } from '@lucide/svelte';
+
+	// Track failed image URLs
+	let failedImages = $state(new Set<string>());
 
 	const PER_PAGE = 50;
 
@@ -188,11 +191,21 @@
 		<a href={resolve(`/${gen.id}`)} class="block">
 			{#if lastStep && lastArtifact}
 				{@const imgUrl = getArtifactUrl(gen.id, lastStep.id, lastArtifact.id)}
-				<img
-					src={imgUrl}
-					alt={gen.prompt}
-					class="w-full aspect-square object-contain bg-muted rounded {gen.approval === 'rejected' ? 'grayscale' : ''}"
-					loading="lazy" />
+				{#if !failedImages.has(imgUrl)}
+					<img
+						src={imgUrl}
+						alt={gen.prompt}
+						class="w-full aspect-square object-contain bg-muted rounded {gen.approval === 'rejected' ? 'grayscale' : ''}"
+						loading="lazy"
+						onerror={() => {
+							failedImages = new Set([...failedImages, imgUrl]);
+						}} />
+				{:else}
+					<div class="w-full aspect-square flex flex-col items-center justify-center bg-destructive/10 text-destructive/60 rounded">
+						<ImageOff class="h-6 w-6 mb-1" />
+						<span class="text-xs">Image error</span>
+					</div>
+				{/if}
 			{:else}
 				<div class="w-full aspect-square bg-muted rounded flex items-center justify-center text-xs text-muted-foreground">No preview</div>
 			{/if}
