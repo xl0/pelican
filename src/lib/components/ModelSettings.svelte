@@ -9,7 +9,7 @@
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { getProvidersWithModels } from '$lib/data.remote';
 	import * as p from '$lib/persisted.svelte';
-	import { ExternalLink, Info, Trash2 } from '@lucide/svelte';
+	import { ExternalLink, Image, Info, Trash2 } from '@lucide/svelte';
 
 	let isApiKeyFocused = $state(false);
 
@@ -41,11 +41,33 @@
 		return providersLookup.get(selectedProvider)?.models ?? [];
 	});
 
+	// Rating to icon: -1 → 👎, 0 → (none), 1 → 👍, 2 → 👍👍, 3 → 👍👍👍
+	function ratingIcon(rating: number | null | undefined): string {
+		if (!rating) return '';
+		if (rating < 0) return '👎 ';
+		return '👍'.repeat(rating) + ' ';
+	}
+
+	const currentModel = $derived(currentProviderModels.find((m) => m.value === selectedModel));
+
 	const modelLabel = $derived.by(() => {
 		if (isCustomModel) return 'Custom Model';
-		const model = currentProviderModels.find((m) => m.value === selectedModel);
-		return model?.label || selectedModel || 'Select a model';
+		return currentModel ? ratingIcon(currentModel.rating) + currentModel.label : selectedModel || 'Select a model';
 	});
+
+	// Format cost: skip if 0
+	function formatCost(inPrice: number, outPrice: number): string {
+		if (inPrice === 0 && outPrice === 0) return '';
+		return `$${inPrice.toFixed(2)}/${outPrice.toFixed(2)}`;
+	}
+
+	// Cost color: green ≤$2.5, yellow >$10, red >$25 (based on output price)
+	function costColor(outPrice: number): string {
+		if (outPrice > 25) return 'text-red-500';
+		if (outPrice > 10) return 'text-yellow-500';
+		if (outPrice <= 2.5) return 'text-green-500';
+		return 'text-muted-foreground';
+	}
 
 	const endpointPlaceholder = $derived(selectedProvider === 'custom' ? 'e.g. https://api.openai.com/v1' : 'Leave empty for default');
 
@@ -101,11 +123,28 @@
 					<Label for="model-select" class="text-xs font-semibold text-foreground">Model</Label>
 					<Select type="single" value={gen.model} onValueChange={handleModelChange}>
 						<SelectTrigger class="w-full border-border">
-							{modelLabel}
+							<span class="truncate">{modelLabel}</span>
 						</SelectTrigger>
-						<SelectContent>
+						<SelectContent class="max-w-md">
 							{#each currentProviderModels as modelOption}
-								<SelectItem value={modelOption.value}>{modelOption.label}</SelectItem>
+								<SelectItem value={modelOption.value}>
+									<div class="flex flex-col gap-0.5">
+										<div class="flex items-center gap-2">
+											{#if modelOption.supportsImages}<span title="Supports image input">
+													<Image class="h-3.5 w-3.5 text-muted-foreground" />
+												</span>{/if}
+											<span>{ratingIcon(modelOption.rating)}{modelOption.label}</span>
+											{#if modelOption.inputPrice > 0 || modelOption.outputPrice > 0}
+												<span class="text-xs {costColor(modelOption.outputPrice)}">
+													{formatCost(modelOption.inputPrice, modelOption.outputPrice)}
+												</span>
+											{/if}
+										</div>
+										{#if modelOption.comment}
+											<span class="text-xs text-muted-foreground truncate max-w-[300px]">{modelOption.comment}</span>
+										{/if}
+									</div>
+								</SelectItem>
 							{/each}
 							<SelectItem value="custom">Custom...</SelectItem>
 						</SelectContent>
@@ -113,6 +152,25 @@
 				{/if}
 			</div>
 		</div>
+
+		<!-- Selected model info -->
+		{#if currentModel && (currentModel.comment || currentModel.inputPrice > 0 || currentModel.outputPrice > 0)}
+			<div class="text-xs text-muted-foreground space-y-0.5">
+				{#if currentModel.inputPrice > 0 || currentModel.outputPrice > 0}
+					<span>Token cost:</span>
+					<span class={costColor(currentModel.outputPrice)}>
+						${currentModel.inputPrice.toFixed(2)} / ${currentModel.outputPrice.toFixed(2)}
+					</span>
+				{/if}
+				{#if currentModel.comment}
+					<div class="italic">{currentModel.comment}</div>
+				{/if}
+			</div>
+		{/if}
+
+		{#if !currentModel}
+			<div>Google Gemini Flash 3 is a good one to try</div>
+		{/if}
 
 		{#if isCustomModel && selectedProvider !== 'custom'}
 			<div class="space-y-1.5">

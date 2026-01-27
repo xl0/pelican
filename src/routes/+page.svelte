@@ -9,4 +9,4 @@
 	<!-- Twitter Card -->
 	<meta name="twitter:card" content="summary" />
 	<meta name="twitter:title" content="Multi-step SVG generator" />
-\</svelte:head>
+</svelte:head>
