@@ -14,6 +14,7 @@ type ImageZoomContext = {
 	open: Writable<boolean>;
 
 	registerImage: (imageData: Omit<ZoomImageData, 'index'>) => number;
+	updateImage: (index: number, imageData: Omit<ZoomImageData, 'index'>) => void;
 	openImage: (index: number) => void;
 
 	nextImage: () => void;
