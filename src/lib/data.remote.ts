@@ -244,7 +244,7 @@ export const uploadArtifact = command(
 		let pngKey: string | undefined;
 		const artifact = await db.db_insertArtifact({ userId: user.id, stepId, body, renderError });
 		try {
-		// Upload each provided format in parallel
+			// Upload each provided format in parallel
 			const uploads = await Promise.all([
 				ascii ? s3.uploadAscii(generationId, stepId, artifact.id, ascii) : undefined,
 				svg ? s3.uploadSvg(generationId, stepId, artifact.id, svg) : undefined,
@@ -340,7 +340,9 @@ export const insertModel = command(
 		label: v.string(),
 		inputPrice: v.optional(v.number()),
 		outputPrice: v.optional(v.number()),
-		supportsImages: v.optional(v.boolean())
+		supportsImages: v.optional(v.boolean()),
+		rating: v.optional(v.number()),
+		comment: v.optional(v.nullable(v.string()))
 	}),
 	async (data) => {
 		assertAdmin();
@@ -359,7 +361,9 @@ export const updateModel = command(
 		label: v.optional(v.string()),
 		inputPrice: v.optional(v.number()),
 		outputPrice: v.optional(v.number()),
-		supportsImages: v.optional(v.boolean())
+		supportsImages: v.optional(v.boolean()),
+		rating: v.optional(v.number()),
+		comment: v.optional(v.nullable(v.string()))
 	}),
 	async ({ id, ...data }) => {
 		assertAdmin();

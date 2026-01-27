@@ -33,7 +33,7 @@ export async function db_getProvidersWithModels() {
 	try {
 		return await db.query.providers.findMany({
 			orderBy: asc(providers.sortOrder),
-			with: { models: { orderBy: asc(models.id) } }
+			with: { models: { orderBy: [desc(models.rating), asc(models.id)] } }
 		});
 	} finally {
 		debug('getProvidersWithModels');
@@ -75,6 +75,8 @@ export async function db_insertModel(data: {
 	inputPrice?: number;
 	outputPrice?: number;
 	supportsImages?: boolean;
+	rating?: number;
+	comment?: string | null;
 }) {
 	try {
 		const res = await db.insert(models).values(data).returning();
@@ -86,7 +88,15 @@ export async function db_insertModel(data: {
 
 export async function db_updateModel(
 	id: number,
-	data: { value?: string; label?: string; inputPrice?: number; outputPrice?: number; supportsImages?: boolean }
+	data: {
+		value?: string;
+		label?: string;
+		inputPrice?: number;
+		outputPrice?: number;
+		supportsImages?: boolean;
+		rating?: number;
+		comment?: string | null;
+	}
 ) {
 	try {
 		const res = await db.update(models).set(data).where(eq(models.id, id)).returning();

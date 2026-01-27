@@ -13,6 +13,7 @@
 	import { Card } from '$lib/components/ui/card';
 	import { Input } from '$lib/components/ui/input';
 	import { Switch } from '$lib/components/ui/switch';
+	import { Select, SelectContent, SelectItem, SelectTrigger } from '$lib/components/ui/select';
 	import * as Collapsible from '$lib/components/ui/collapsible';
 	import { Check, ChevronDown, Pencil, Plus, Save, X } from '@lucide/svelte';
 
@@ -28,7 +29,10 @@
 	let newProviderForm = $state({ id: '', label: '', sortOrder: 0, apiKeyUrl: '' });
 	let showNewProviderForm = $state(false);
 	let newModelForms = $state<
-		Record<string, { value: string; label: string; inputPrice: number; outputPrice: number; supportsImages: boolean }>
+		Record<
+			string,
+			{ value: string; label: string; inputPrice: number; outputPrice: number; supportsImages: boolean; rating: number; comment: string }
+		>
 	>({});
 	let showNewModelForm = $state<string | null>(null);
 	let modelEdits = $state<Record<number, Partial<ModelItem>>>({});
@@ -53,7 +57,9 @@
 			label: edits.label,
 			inputPrice: edits.inputPrice,
 			outputPrice: edits.outputPrice,
-			supportsImages: edits.supportsImages
+			supportsImages: edits.supportsImages,
+			rating: edits.rating,
+			comment: edits.comment || null
 		}).updates(providersQuery);
 		delete modelEdits[model.id];
 		editingModel = null;
@@ -98,14 +104,14 @@
 	}
 
 	function initNewModelForm(providerId: string) {
-		newModelForms[providerId] = { value: '', label: '', inputPrice: 0, outputPrice: 0, supportsImages: true };
+		newModelForms[providerId] = { value: '', label: '', inputPrice: 0, outputPrice: 0, supportsImages: true, rating: 0, comment: '' };
 		showNewModelForm = providerId;
 	}
 
 	async function handleAddModel(providerId: string) {
 		const form = newModelForms[providerId];
 		if (!form?.value || !form?.label) return;
-		await insertModel({ providerId, ...form }).updates(providersQuery);
+		await insertModel({ providerId, ...form, comment: form.comment || null }).updates(providersQuery);
 		delete newModelForms[providerId];
 		showNewModelForm = null;
 	}
@@ -213,83 +219,145 @@
 						<Collapsible.Content>
 							<div class="border-t border-border">
 								<!-- Model Table Header -->
-								<div class="grid grid-cols-12 gap-2 px-4 py-2 bg-muted/30 text-xs font-medium text-muted-foreground">
-									<div class="col-span-3">Model ID</div>
-									<div class="col-span-3">Label</div>
-									<div class="col-span-2 text-right">Input $/1M</div>
-									<div class="col-span-2 text-right">Output $/1M</div>
-									<div class="col-span-1 text-center">Images</div>
-									<div class="col-span-1"></div>
+								<div
+									class="grid grid-cols-[1fr_1fr_80px_80px_50px_60px_60px] gap-2 px-4 py-2 bg-muted/30 text-xs font-medium text-muted-foreground">
+									<div>Model ID</div>
+									<div>Label</div>
+									<div class="text-right">In $/1M</div>
+									<div class="text-right">Out $/1M</div>
+									<div class="text-center">Img</div>
+									<div class="text-center">Rating</div>
+									<div></div>
 								</div>
 
 								<!-- Model Rows -->
 								{#each provider.models as model (model.id)}
-									<div class="grid grid-cols-12 gap-2 px-4 py-2 border-t border-border/50 items-center text-sm">
+									<div class="border-t border-border/50">
 										{#if editingModel === model.id}
-											<div class="col-span-3">
-												<Input class="h-8 font-mono text-xs" bind:value={modelEdits[model.id].value} />
+											<div class="grid grid-cols-[1fr_1fr_80px_80px_50px_60px_60px] gap-2 px-4 py-2 items-center text-sm">
+												<div>
+													<Input class="h-8 font-mono text-xs" bind:value={modelEdits[model.id].value} />
+												</div>
+												<div>
+													<Input class="h-8" bind:value={modelEdits[model.id].label} />
+												</div>
+												<div>
+													<Input type="number" step="0.01" class="h-8 text-right" bind:value={modelEdits[model.id].inputPrice} />
+												</div>
+												<div>
+													<Input type="number" step="0.01" class="h-8 text-right" bind:value={modelEdits[model.id].outputPrice} />
+												</div>
+												<div class="flex justify-center">
+													<Switch bind:checked={modelEdits[model.id].supportsImages} />
+												</div>
+												<div>
+													<Select
+														type="single"
+														value={String(modelEdits[model.id].rating ?? 0)}
+														onValueChange={(v) => (modelEdits[model.id].rating = Number(v))}>
+														<SelectTrigger class="h-8 w-full text-center">
+															{modelEdits[model.id].rating === -1
+																? '👎'
+																: modelEdits[model.id].rating === 0
+																	? '—'
+																	: '👍'.repeat(modelEdits[model.id].rating ?? 0)}
+														</SelectTrigger>
+														<SelectContent>
+															<SelectItem value="-1">👎</SelectItem>
+															<SelectItem value="0">—</SelectItem>
+															<SelectItem value="1">👍</SelectItem>
+															<SelectItem value="2">👍👍</SelectItem>
+															<SelectItem value="3">👍👍👍</SelectItem>
+														</SelectContent>
+													</Select>
+												</div>
+												<div class="flex justify-end gap-1">
+													<Button size="icon" variant="ghost" class="h-7 w-7" onclick={() => saveModel(model)}>
+														<Save class="h-3 w-3" />
+													</Button>
+													<Button size="icon" variant="ghost" class="h-7 w-7" onclick={cancelEditModel}>
+														<X class="h-3 w-3" />
+													</Button>
+												</div>
 											</div>
-											<div class="col-span-3">
-												<Input class="h-8" bind:value={modelEdits[model.id].label} />
-											</div>
-											<div class="col-span-2">
-												<Input type="number" step="0.01" class="h-8 text-right" bind:value={modelEdits[model.id].inputPrice} />
-											</div>
-											<div class="col-span-2">
-												<Input type="number" step="0.01" class="h-8 text-right" bind:value={modelEdits[model.id].outputPrice} />
-											</div>
-											<div class="col-span-1 flex justify-center">
-												<Switch bind:checked={modelEdits[model.id].supportsImages} />
-											</div>
-											<div class="col-span-1 flex justify-end gap-1">
-												<Button size="icon" variant="ghost" class="h-7 w-7" onclick={() => saveModel(model)}>
-													<Save class="h-3 w-3" />
-												</Button>
-												<Button size="icon" variant="ghost" class="h-7 w-7" onclick={cancelEditModel}>
-													<X class="h-3 w-3" />
-												</Button>
+											<!-- Comment row -->
+											<div class="px-4 pb-2">
+												<Input class="h-8 text-sm" bind:value={modelEdits[model.id].comment} placeholder="Comment (optional)" />
 											</div>
 										{:else}
-											<div class="col-span-3 font-mono text-xs truncate" title={model.value}>{model.value}</div>
-											<div class="col-span-3 truncate">{model.label}</div>
-											<div class="col-span-2 text-right text-muted-foreground">${model.inputPrice.toFixed(2)}</div>
-											<div class="col-span-2 text-right text-muted-foreground">${model.outputPrice.toFixed(2)}</div>
-											<div class="col-span-1 text-center">{model.supportsImages ? '✓' : '—'}</div>
-											<div class="col-span-1 flex justify-end gap-1">
-												<Button size="icon" variant="ghost" class="h-7 w-7" onclick={() => startEditModel(model)}>
-													<Pencil class="h-3 w-3" />
-												</Button>
-												<DeleteButton onConfirm={() => handleDeleteModel(model.id)} title="Delete model" />
+											<div class="grid grid-cols-[1fr_1fr_80px_80px_50px_60px_60px] gap-2 px-4 py-2 items-center text-sm">
+												<div class="font-mono text-xs truncate" title={model.value}>{model.value}</div>
+												<div class="truncate">{model.label}</div>
+												<div class="text-right text-muted-foreground">${model.inputPrice.toFixed(2)}</div>
+												<div class="text-right text-muted-foreground">${model.outputPrice.toFixed(2)}</div>
+												<div class="text-center">{model.supportsImages ? '✓' : '—'}</div>
+												<div class="text-center">{model.rating < 0 ? '👎' : model.rating > 0 ? '👍'.repeat(model.rating) : '—'}</div>
+												<div class="flex justify-end gap-1">
+													<Button size="icon" variant="ghost" class="h-7 w-7" onclick={() => startEditModel(model)}>
+														<Pencil class="h-3 w-3" />
+													</Button>
+													<DeleteButton onConfirm={() => handleDeleteModel(model.id)} title="Delete model" />
+												</div>
 											</div>
+											{#if model.comment}
+												<div class="px-4 pb-2 text-xs text-muted-foreground italic">{model.comment}</div>
+											{/if}
 										{/if}
 									</div>
 								{/each}
 
 								<!-- Add Model Form -->
 								{#if showNewModelForm === provider.id}
-									<div class="grid grid-cols-12 gap-2 px-4 py-2 border-t border-border/50 items-center bg-muted/20">
-										<div class="col-span-3">
-											<Input class="h-8 font-mono text-xs" bind:value={newModelForms[provider.id].value} placeholder="model-id" />
+									<div class="border-t border-border/50 bg-muted/20">
+										<div class="grid grid-cols-[1fr_1fr_80px_80px_50px_60px_60px] gap-2 px-4 py-2 items-center">
+											<div>
+												<Input class="h-8 font-mono text-xs" bind:value={newModelForms[provider.id].value} placeholder="model-id" />
+											</div>
+											<div>
+												<Input class="h-8" bind:value={newModelForms[provider.id].label} placeholder="Display Name" />
+											</div>
+											<div>
+												<Input type="number" step="0.01" class="h-8 text-right" bind:value={newModelForms[provider.id].inputPrice} />
+											</div>
+											<div>
+												<Input type="number" step="0.01" class="h-8 text-right" bind:value={newModelForms[provider.id].outputPrice} />
+											</div>
+											<div class="flex justify-center">
+												<Switch bind:checked={newModelForms[provider.id].supportsImages} />
+											</div>
+											<div>
+												<Select
+													type="single"
+													value={String(newModelForms[provider.id].rating)}
+													onValueChange={(v) => (newModelForms[provider.id].rating = Number(v))}>
+													<SelectTrigger class="h-8 w-full text-center">
+														{newModelForms[provider.id].rating === -1
+															? '👎'
+															: newModelForms[provider.id].rating === 0
+																? '—'
+																: '👍'.repeat(newModelForms[provider.id].rating)}
+													</SelectTrigger>
+													<SelectContent>
+														<SelectItem value="-1">👎</SelectItem>
+														<SelectItem value="0">—</SelectItem>
+														<SelectItem value="1">👍</SelectItem>
+														<SelectItem value="2">👍👍</SelectItem>
+														<SelectItem value="3">👍👍👍</SelectItem>
+													</SelectContent>
+												</Select>
+											</div>
+											<div class="flex justify-end gap-1">
+												<Button size="icon" variant="ghost" class="h-7 w-7" onclick={() => handleAddModel(provider.id)}>
+													<Check class="h-3 w-3" />
+												</Button>
+												<Button size="icon" variant="ghost" class="h-7 w-7" onclick={() => cancelNewModel(provider.id)}>
+													<X class="h-3 w-3" />
+												</Button>
+											</div>
 										</div>
-										<div class="col-span-3">
-											<Input class="h-8" bind:value={newModelForms[provider.id].label} placeholder="Display Name" />
-										</div>
-										<div class="col-span-2">
-											<Input type="number" step="0.01" class="h-8 text-right" bind:value={newModelForms[provider.id].inputPrice} />
-										</div>
-										<div class="col-span-2">
-											<Input type="number" step="0.01" class="h-8 text-right" bind:value={newModelForms[provider.id].outputPrice} />
-										</div>
-										<div class="col-span-1 flex justify-center">
-											<Switch bind:checked={newModelForms[provider.id].supportsImages} />
-										</div>
-										<div class="col-span-1 flex justify-end gap-1">
-											<Button size="icon" variant="ghost" class="h-7 w-7" onclick={() => handleAddModel(provider.id)}>
-												<Check class="h-3 w-3" />
-											</Button>
-											<Button size="icon" variant="ghost" class="h-7 w-7" onclick={() => cancelNewModel(provider.id)}>
-												<X class="h-3 w-3" />
-											</Button>
+										<!-- Comment row -->
+										<div class="px-4 pb-2">
+											<Input class="h-8 text-sm" bind:value={newModelForms[provider.id].comment} placeholder="Comment (optional)" />
 										</div>
 									</div>
 								{:else}

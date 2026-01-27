@@ -66,7 +66,9 @@ export const models = pelican.table(
 		label: text('label').notNull(), // Display name: 'GPT-4o', 'Claude 3.5 Sonnet'
 		inputPrice: real('input_price').notNull().default(0), // Cost per 1M input tokens
 		outputPrice: real('output_price').notNull().default(0), // Cost per 1M output tokens
-		supportsImages: boolean('supports_images').notNull().default(true)
+		supportsImages: boolean('supports_images').notNull().default(true),
+		rating: integer('rating').notNull().default(0), // -1 (thumbs down) to +3 (3 thumbs up)
+		comment: text('comment') // Free text notes about the model
 	},
 	(t) => [unique().on(t.providerId, t.value)]
 );
