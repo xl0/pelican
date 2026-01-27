@@ -29,19 +29,19 @@
 		isOpen = $openStore;
 	});
 
-	const currentImageData = $derived(
-		currentImageIndex !== null ? registeredImages[currentImageIndex] : null
-	);
+	const currentImageData = $derived(currentImageIndex !== null ? registeredImages[currentImageIndex] : null);
 	const hasMultipleImages = $derived(registeredImages.length > 1);
 	const hasPrevious = $derived(currentImageIndex !== null && currentImageIndex > 0);
-	const hasNext = $derived(
-		currentImageIndex !== null && currentImageIndex < registeredImages.length - 1
-	);
+	const hasNext = $derived(currentImageIndex !== null && currentImageIndex < registeredImages.length - 1);
 
 	function registerImage(imageData: Omit<ZoomImageData, 'index'>) {
 		const index = $registeredImagesStore.length;
 		$registeredImagesStore = [...$registeredImagesStore, { ...imageData, index }];
 		return index;
+	}
+
+	function updateImage(index: number, imageData: Omit<ZoomImageData, 'index'>) {
+		$registeredImagesStore = $registeredImagesStore.map((img, i) => (i === index ? { ...imageData, index } : img));
 	}
 
 	function openImage(index: number) {
@@ -71,6 +71,7 @@
 		currentImageIndex: currentImageIndexStore,
 		open: openStore,
 		registerImage,
+		updateImage,
 		openImage,
 		nextImage,
 		prevImage
@@ -93,20 +94,16 @@
 		transition:fade={{ duration: 150 }}
 		aria-modal="true"
 		role="dialog"
-		tabindex="-1"
-	>
+		tabindex="-1">
 		<!-- svelte-ignore a11y_interactive_supports_focus -->
 		<div class="absolute inset-0" onclick={closeZoom} aria-label="Close" role="button"></div>
 
-		<div
-			class="relative max-w-[90vw] max-h-[90vh] flex items-center justify-center pointer-events-none"
-		>
+		<div class="relative max-w-[90vw] max-h-[90vh] flex items-center justify-center pointer-events-none">
 			<img
 				src={currentImageData.src}
 				alt={currentImageData.alt}
 				class="block max-w-full max-h-full object-contain pointer-events-auto"
-				transition:fade={{ duration: 300, delay: 50 }}
-			/>
+				transition:fade={{ duration: 300, delay: 50 }} />
 		</div>
 
 		{#if hasMultipleImages}
@@ -116,8 +113,7 @@
 				class="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 hover:bg-primary cursor-pointer pointer-events-auto disabled:opacity-30 disabled:pointer-events-none"
 				onclick={prevImage}
 				disabled={!hasPrevious}
-				aria-label="Previous image"
-			>
+				aria-label="Previous image">
 				<ChevronLeft class="h-8 w-8" />
 			</Button>
 
@@ -127,8 +123,7 @@
 				class="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:text-gray-300 hover:bg-primary cursor-pointer pointer-events-auto disabled:opacity-30 disabled:pointer-events-none"
 				onclick={nextImage}
 				disabled={!hasNext}
-				aria-label="Next image"
-			>
+				aria-label="Next image">
 				<ChevronRight class="h-8 w-8" />
 			</Button>
 		{/if}
@@ -138,8 +133,7 @@
 			size="icon"
 			class="absolute top-4 right-4 pointer-events-auto text-white hover:text-gray-300 cursor-pointer hover:bg-primary"
 			onclick={closeZoom}
-			aria-label="Close zoomed image"
-		>
+			aria-label="Close zoomed image">
 			<X class="h-6 w-6" />
 		</Button>
 	</div>
