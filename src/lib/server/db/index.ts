@@ -22,7 +22,9 @@ import { users } from './schema';
 
 const debug = dbg('app:db');
 
-const client = postgres(DATABASE_URL);
+
+// prepare false required for transaction pooler
+const client = postgres(DATABASE_URL, {prepare: false, max: 16});
 export const db = drizzle(client, { schema });
 
 // ============================================================================
